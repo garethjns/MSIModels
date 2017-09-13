@@ -12,146 +12,161 @@ from keras.layers import Dense, Dropout, Flatten, Input, Embedding, concatenate
 from keras.layers import LSTM
 from keras import optimizers
 
+from utils import singleChannelHelpers
+
 
 #%% Models
 
-def simpleLSTM(data, nPts=128):
-    
-    timeSteps = data.shape[1]
-    
-    model = Sequential()
-    model.add(Embedding(timeSteps, output_dim=timeSteps))
-    model.add(LSTM(nPts))
-    model.add(Dropout(0.5))
-    model.add(Dense(timeSteps, activation='relu'))
-    
-    model.compile(loss='mse',
-                  optimizer='rmsprop',
-                  metrics=['accuracy'])
+class LSTMModels(singleChannelHelpers):
+    def __init__(self, name=''):
+        self.results = dict()
+        self.name = name
 
-    return model
+    def seqLSTM(self, data, nPts=128):
+        
+        timeSteps = data.shape[1]
+        
+        model = Sequential()
+        model.add(Embedding(timeSteps, output_dim=timeSteps))
+        model.add(LSTM(nPts))
+        model.add(Dropout(0.5))
+        model.add(Dense(timeSteps, activation='relu'))
+        
+        model.compile(loss='mse',
+                      optimizer='rmsprop',
+                      metrics=['accuracy'])
+    
+        return model
+    
+    
+    def simple(self, x1, nDims=128):
+        """
+        1 Channel (A or V)
+        Rate and decision output
+        inputs=[audInput],
+        outputs=[audRateOutput, audDecOutput]
+        
+        TODO:
+            Rename aud references to something more generic - can be A or V
+        """
+        
+        # Prepare inputs
+        x1Width = x1.shape[1] # Also aud lstm output width
+        
+        # Create Input layers
+        inp = Input(shape=(x1Width,1), dtype='float32', name='input')
+        
+        # Aud LSTM    
+        lstm = LSTM(nDims, input_shape=(x1Width,1), 
+                       return_sequences=True, name='LSTM_l1')(inp)
+        lstm = Flatten(name='LSTM_l2')(lstm) 
+        lstm = Dropout(0.3, name='LSTM_l3')(lstm) 
+        
+        # Aud dense layers
+        a = Dense(int(x1Width/2), activation='relu', 
+                  name='rate_l1')(lstm)
+        a = Dropout(0.15, name='rate_l2')(a)
+        rateOutput = Dense(1, activation='relu', 
+                              name='rateOutput')(a)
+        
+        # And make decision
+        decOutput = Dense(2, activation='softmax', 
+                              name='decOutput')(rateOutput)
+        
+        # Make model with 1 input and 2 outputs
+        model = Model(inputs=[inp],
+                      outputs=[rateOutput, decOutput])
+        
+        # Complile with weighted losses
+        model.compile(optimizer='rmsprop', loss='mse',
+                      loss_weights=[0.5, 0.5], 
+                      metrics=['accuracy'])
+    
+        print(model.summary())
+        
+        self.mod = model
+        
+        return self
+    
+    
+    def lateAccum(self, x1Aud, x1Vis, nPts=128):
+        """
+        Seperate sensory processing
+        Seperate accumulation and decision
+        Combined for AV rate and dec 
+        
+        inputs=[audInput, visInput],
+        outputs=[audLSTMOutput, audRateOutput, 
+                 visLSTMOutput, visRateOutput,
+                 AVRate, AVDec]
+        """
+        
+        # Prepare inputs
+        x1AudWidth = x1Aud.shape[1] # Also aud lstm output width
+        x1VisWidth = x1Vis.shape[1] # Also vis lstm output width
+        
+        # Create Input layers
+        audInput = Input(shape=(x1AudWidth,1), dtype='float32', name='audInput')
+        visInput = Input(shape=(x1VisWidth,1), dtype='float32', name='visInput')
+        
+        # Aud LSTM    
+        audLSTM = LSTM(nPts, input_shape=(x1AudWidth,1), 
+                       return_sequences=True, name='audLSTM_l1')(audInput)
+        audLSTM = Flatten(name='audLSTM_l2')(audLSTM) 
+        audLSTM = Dropout(0.3, name='audLSTM_l3')(audLSTM) 
+        audLSTMOutput = Dense(x1AudWidth, name='audLSTMOutput', 
+                              activation='relu')(audLSTM)
+        
+        # Vis LSTM    
+        visLSTM = LSTM(nPts, input_shape=(x1VisWidth,1), 
+                       return_sequences=True, name='visLSTM_l1')(visInput)
+        visLSTM = Dropout(0.3, name='visLSTM_l2')(visLSTM) 
+        visLSTM = Flatten(name='visLSTM_l3')(visLSTM) 
+        visLSTMOutput = Dense(x1AudWidth, name='visLSTMOutput', 
+                              activation='relu')(visLSTM)
+        
+        # Aud dense layers
+        a = Dense(int(x1AudWidth/2), activation='sigmoid', 
+                  name='audRate_l1')(audLSTMOutput)
+        a = Dropout(0.15, name='audRate_l2')(a)
+        audRateOutput = Dense(1, activation='relu', 
+                              name='audRateOutput')(a)
+        
+        # Vis dense layers
+        v = Dense(int(x1VisWidth/2), activation='sigmoid', 
+                  name='visRate_l1')(visLSTMOutput)
+        v = Dropout(0.15, name='visRate_l2')(v)
+        visRateOutput = Dense(1, activation='relu', 
+                              name='visRateOutput')(v)
+        
+        # Late concatenation of estimates
+        AV = concatenate([audRateOutput, visRateOutput], name='AVRateConcat')
+        AVRate = Dense(1, activation='relu', 
+                              name='AVRateOutput')(AV)
+        
+        # And make decision
+        AVDec = Dense(2, activation='softmax', 
+                              name='AVDecOutput')(AVRate)
+        
+        # Make model with 1 input and 2 outputs
+        model = Model(inputs=[audInput, visInput],
+                      outputs=[audLSTMOutput, audRateOutput, 
+                               visLSTMOutput, visRateOutput,
+                               AVRate, AVDec])
+        
+        # Complile with weighted losses
+        model.compile(optimizer='rmsprop', loss='mse',
+                      loss_weights=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5], 
+                      metrics=['accuracy'])
+    
+        print(model.summary())
+        
+        self.mod = model
+        
+        return self
 
 
-def simpleLSTM1D(x1Aud, nDims=128):
-    """
-    1 Channel (A or V)
-    Rate and decision output
-    inputs=[audInput],
-    outputs=[audRateOutput, audDecOutput]
-    
-    TODO:
-        Rename aud references to something more generic - can be A or V
-    """
-    
-    # Prepare inputs
-    x1AudWidth = x1Aud.shape[1] # Also aud lstm output width
-    
-    # Create Input layers
-    audInput = Input(shape=(x1AudWidth,1), dtype='float32', name='audInput')
-    
-    # Aud LSTM    
-    audLSTM = audLSTM = LSTM(nDims, input_shape=(x1AudWidth,1), 
-                   return_sequences=True, name='audLSTM_l1')(audInput)
-    audLSTM = Flatten(name='audLSTM_l2')(audLSTM) 
-    audLSTM = Dropout(0.3, name='audLSTM_l3')(audLSTM) 
-    
-    # Aud dense layers
-    a = Dense(int(x1AudWidth/2), activation='relu', 
-              name='audRate_l1')(audLSTM)
-    a = Dropout(0.15, name='audRate_l2')(audLSTM)
-    audRateOutput = Dense(1, activation='relu', 
-                          name='audRateOutput')(a)
-    
-    # And make decision
-    audDecOutput = Dense(2, activation='softmax', 
-                          name='audDecOutput')(audRateOutput)
-    
-    # Make model with 1 input and 2 outputs
-    model = Model(inputs=[audInput],
-                  outputs=[audRateOutput, audDecOutput])
-    
-    # Complile with weighted losses
-    model.compile(optimizer='rmsprop', loss='mse',
-                  loss_weights=[0.5, 0.5], 
-                  metrics=['accuracy'])
-
-    print(model.summary())
-    return model
-
-
-def lateAccum(x1Aud, x1Vis, nPts=128):
-    """
-    Seperate sensory processing
-    Seperate accumulation and decision
-    Combined for AV rate and dec 
-    
-    inputs=[audInput, visInput],
-    outputs=[audLSTMOutput, audRateOutput, 
-             visLSTMOutput, visRateOutput,
-             AVRate, AVDec]
-    """
-    
-    # Prepare inputs
-    x1AudWidth = x1Aud.shape[1] # Also aud lstm output width
-    x1VisWidth = x1Vis.shape[1] # Also vis lstm output width
-    
-    # Create Input layers
-    audInput = Input(shape=(x1AudWidth,1), dtype='float32', name='audInput')
-    visInput = Input(shape=(x1VisWidth,1), dtype='float32', name='visInput')
-    
-    # Aud LSTM    
-    audLSTM = LSTM(nPts, input_shape=(x1AudWidth,1), 
-                   return_sequences=True, name='audLSTM_l1')(audInput)
-    audLSTM = Flatten(name='audLSTM_l2')(audLSTM) 
-    audLSTM = Dropout(0.3, name='audLSTM_l3')(audLSTM) 
-    audLSTMOutput = Dense(x1AudWidth, name='audLSTMOutput', 
-                          activation='relu')(audLSTM)
-    
-    # Vis LSTM    
-    visLSTM = LSTM(nPts, input_shape=(x1VisWidth,1), 
-                   return_sequences=True, name='visLSTM_l1')(visInput)
-    visLSTM = Dropout(0.3, name='visLSTM_l2')(visLSTM) 
-    visLSTM = Flatten(name='visLSTM_l3')(visLSTM) 
-    visLSTMOutput = Dense(x1AudWidth, name='visLSTMOutput', 
-                          activation='relu')(visLSTM)
-    
-    # Aud dense layers
-    a = Dense(int(x1AudWidth/2), activation='sigmoid', 
-              name='audRate_l1')(audLSTMOutput)
-    a = Dropout(0.15, name='audRate_l2')(a)
-    audRateOutput = Dense(1, activation='relu', 
-                          name='audRateOutput')(a)
-    
-    # Vis dense layers
-    v = Dense(int(x1VisWidth/2), activation='sigmoid', 
-              name='visRate_l1')(visLSTMOutput)
-    v = Dropout(0.15, name='visRate_l2')(v)
-    visRateOutput = Dense(1, activation='relu', 
-                          name='visRateOutput')(v)
-    
-    # Late concatenation of estimates
-    AV = concatenate([audRateOutput, visRateOutput], name='AVRateConcat')
-    AVRate = Dense(1, activation='relu', 
-                          name='AVRateOutput')(AV)
-    
-    # And make decision
-    AVDec = Dense(2, activation='softmax', 
-                          name='AVDecOutput')(AVRate)
-    
-    # Make model with 1 input and 2 outputs
-    model = Model(inputs=[audInput, visInput],
-                  outputs=[audLSTMOutput, audRateOutput, 
-                           visLSTMOutput, visRateOutput,
-                           AVRate, AVDec])
-    
-    # Complile with weighted losses
-    model.compile(optimizer='rmsprop', loss='mse',
-                  loss_weights=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5], 
-                  metrics=['accuracy'])
-
-    print(model.summary())
-    return model
-
+#%% Others - add later
 # LSTM, late accumulation
 def lateAccumComplex(x1Aud, x1Vis, nPts=128):
     # Seperate sensory processing

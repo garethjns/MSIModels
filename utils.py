@@ -25,159 +25,256 @@ from sklearn.preprocessing import minmax_scale as MMS, OneHotEncoder
 from keras.models import Model
 
 
+
 #%% Functions
 
-def loadMat(fn):
-    f = sio.loadmat(fn)
-    events = f['events'].astype(np.int16)
-    sounds = f['sounds'].astype(np.float16)
-    rates = MMS(f['rates'].squeeze())
+class dataHelpers():
     
-    return events, sounds, rates
+    def __init__(self, fn, name=''):
+        self.fn = fn
+        self.name = name
+        self.data = dict()
 
-
-def loadMatAV(fn, plotOn=True, idx=[]):
-    f = sio.loadmat(fn)
-
-    # Aud
-    eventsA = f['eventsA'].astype(np.int16)
-    soundsA = f['soundsA'].astype(np.float16)
-    ratesA = f['ratesA']
-    # One-hot decision
-    oh = OneHotEncoder()
-    decA = (ratesA>np.mean(ratesA)).astype(np.int16)
-    oh = oh.fit(decA)
-    decA = oh.transform(decA).toarray()
     
-    # Vis
-    eventsV = f['eventsV'].astype(np.int16)
-    soundsV = f['soundsV'].astype(np.float16)
-    ratesV = f['ratesV']
-    # One-hit decision using existing scheme
-    decV = (ratesV>np.mean(ratesV)).astype(np.int16)
-    decV = oh.transform(decV).toarray()
-
-    if plotOn:
+    def loadMat(self):
+        f = sio.loadmat(self.fn)
+        events = f['events'].astype(np.int16)
+        sounds = f['sounds'].astype(np.float16)
+        rates = MMS(f['rates'].squeeze())
+        
+        return events, sounds, rates
+    
+    
+    def loadMatAV(self, plotOn=True, idx=[]):
+        f = sio.loadmat(self.fn)
+    
+        # Aud
+        eventsA = f['eventsA'].astype(np.int16)
+        soundsA = f['soundsA'].astype(np.float16)
+        ratesA = f['ratesA']
+        # One-hot decision
+        oh = OneHotEncoder()
+        decA = (ratesA>np.mean(ratesA)).astype(np.int16)
+        oh = oh.fit(decA)
+        decA = oh.transform(decA).toarray()
+        
+        # Vis
+        eventsV = f['eventsV'].astype(np.int16)
+        soundsV = f['soundsV'].astype(np.float16)
+        ratesV = f['ratesV']
+        # One-hit decision using existing scheme
+        decV = (ratesV>np.mean(ratesV)).astype(np.int16)
+        decV = oh.transform(decV).toarray()
+    
+        self.eventsA = eventsA
+        self.soundsA = soundsA
+        self.ratesA = ratesA
+        self.decA = decA
+        self.eventsV = eventsV
+        self.soundsV = soundsV
+        self.ratesV = ratesV
+        self.decV = decV
+        
+        if plotOn:
+            self.plotAV()
+        
+        return self
+    
+    
+    def plotAV(self, idx=[], note=''):
+        dataHelpers.plot(self.eventsA, self.soundsA, self.ratesA, self.decA, 
+                         note='Aud')
+        dataHelpers.plot(self.eventsV, self.soundsV, self.ratesV, self.decV, 
+                         note='Vis')
+    
+    
+    @staticmethod    
+    def plot(events, sounds, rates, dec, idx=[], note=''):
         if idx==[]:
-            idx = np.random.randint(eventsA.shape[0])
-        plt.plot(soundsA[idx,:])
-        plt.plot(eventsA[idx,:])
-        plt.show()
-        print(ratesA[idx])
-        print(decA[idx])
-        
-        plt.plot(soundsV[idx,:])
-        plt.plot(eventsV[idx,:])
-        plt.show()
-        print(ratesV[idx])
-        print(decV[idx])
-        
-    return eventsA, soundsA, ratesA, decA, eventsV, soundsV, ratesV, decV
-
-
-def simpleSplit(sounds, events, rates, dec, n=350):
-    """
-    Split in to test and train sets, assumes already shuffled.
-    Returns multiple shapes of data for convenience
-    """
-    xTrain = sounds[0:n,:]
-    yTrain = events[0:n,:]
-    yTrainR = rates[0:n]
-    yTrainD = dec[0:n,:]
-    
-    xTest = sounds[n::,:]
-    yTest = events[n::,:]
-    yTestR = rates[n::]
-    yTestD = dec[n::,:]
-    
-    # Needed when extracting sequence from LSTM layers
-    xTrainExp = np.expand_dims(xTrain, axis=2)
-    xTestExp = np.expand_dims(xTest, axis=2)
-    yTrainExp = np.expand_dims(yTrain, axis=2)
-    yTestExp = np.expand_dims(yTest, axis=2)
-
-    return xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, \
-            xTest, xTestExp, yTest, yTestExp, yTestR, yTestD
+                idx = np.random.randint(events.shape[0])
             
-
-def evalSingleChanMod(mod, 
-              xTrainAud, yTrainAud, yTrainRAud, yTrainDAud, 
-              soundsAud, eventsAud, layerName='', trans=True):
-    
-    """
-    Eval and plot for model with
-    inputs=[audInput],
-    outputs=[audRateOutput, audDecOutput]
-    eg. ConvModels.simpleConv1D and LSTMModels.simpleLSTM
-    
-    - Plots a random single example
-    - And named layer output
-    - Then overall loss and accuracy for set
-    
-    TODO:
-        - Rename references to Aud - can be A or V
-        - Rename references to train - can be any set with labels
-    """
-    
-    xTrainExpAud = np.expand_dims(xTrainAud, 2)
-    
-    # Predict from model
-    audRate, audDec = \
-        mod.predict(xTrainExpAud)
-    
-
-    print('Random single example:')
-    idx = np.random.randint(audRate.shape[0])
-    print('Stim, events:')    
-    plt.plot(xTrainAud[idx,:])
-    plt.plot(yTrainAud[idx,:])
-    plt.show()
-    
-    # Also get output from conv -> flatten for this example
-    if layerName != '':
-        print(layerName)      
-        interMod = Model(inputs=mod.input, 
-                         outputs=mod.get_layer(layerName).output)
-        intOut = interMod.predict(np.expand_dims(xTrainExpAud[0,:,:], axis=0))
-
-        print(layerName, 'output:')
-        if trans:
-            plt.plot(np.transpose(intOut.squeeze()))
-        else:
-            plt.plot(intOut.squeeze())
-            
+        plt.plot(sounds[idx,:])
+        plt.plot(events[idx,:])
         plt.show()
-        print('Layer output shape:')
-        print(intOut.shape)
+        print(note)
+        print(rates[idx])
+        print(dec[idx])
+   
+        
+    def split(self, n=250):
+        for s in ['Aud', 'Vis']:
+            if s=='Aud':
+                self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
+                self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud, \
+                self.xTestAud, self.xTestExpAud, self.yTestAud, \
+                self.yTestExpAud, self.yTestRAud, self.yTestDAud = \
+                    dataHelpers.simpleSplit(self.soundsA, 
+                                            self.eventsA, 
+                                            self.ratesA, 
+                                            self.decA, 
+                                            n=n)
+            elif s=='Vis':
+                self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
+                self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis, \
+                self.xTestVis, self.xTestExpVis, self.yTestVis, \
+                self.yTestExpVis, self.yTestRVis, self.yTestDVis = \
+                    dataHelpers.simpleSplit(self.soundsV, 
+                                            self.eventsV, 
+                                            self.ratesV, 
+                                            self.decV, 
+                                            n=n)
+                
+        return self
+    
+    
+    @staticmethod
+    def simpleSplit(sounds, events, rates, dec, n=350):
+        """
+        Split in to test and train sets, assumes already shuffled.
+        Returns multiple shapes of data for convenience
+        """
+        xTrain = sounds[0:n,:]
+        yTrain = events[0:n,:]
+        yTrainR = rates[0:n]
+        yTrainD = dec[0:n,:]
+        
+        xTest = sounds[n::,:]
+        yTest = events[n::,:]
+        yTestR = rates[n::]
+        yTestD = dec[n::,:]
+        
+        # Needed when extracting sequence from LSTM layers
+        xTrainExp = np.expand_dims(xTrain, axis=2)
+        xTestExp = np.expand_dims(xTest, axis=2)
+        yTrainExp = np.expand_dims(yTrain, axis=2)
+        yTestExp = np.expand_dims(yTest, axis=2)
+    
+        return xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, xTest, \
+            xTestExp, yTest, yTestExp, yTestR, yTestD
+            
+            
+    def trainSet(self, w='Aud'):
+        if w=='Aud':
+            return self.xTrainAud, self.xTrainExpAud, self.yTrainAud, self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud
+        elif w=='Vis':
+            return self.xTrainVis, self.xTrainExpVis, self.yTrainVis, self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis
+    
+    
+    def testSet(self, w='Aud'):
+        if w=='Aud':
+            return self.xTestAud, self.xTestExpAud, self.yTestAud, self.yTestExpAud, self.yTestRAud, self.yTestDAud
+        elif w=='Vis':
+            return self.xTestVis, self.xTestExpVis, self.yTestVis, self.yTestExpVis, self.yTestRVis, self.yTestDVis
+        
+            
+#%%
 
-    print('Pred rate:', audRate[idx])
-    print('Pred dec:', audDec[idx])
-    print('GT:', yTrainRAud[idx])
+class singleChannelHelpers():
+    def __init__(self):
+        self.mod = []
+        self.results = dict()
+        
+   
+    def evaluate(self, dataSet, setName='train', layerName='', trans=True):
+        
+        """
+        Eval and plot for model with
+        inputs=[audInput],
+        outputs=[audRateOutput, audDecOutput]
+        eg. ConvModels.simpleConv1D and LSTMModels.simpleLSTM
+        
+        - Plots a random single example
+        - And named layer output
+        - Then overall loss and accuracy for set
+        
+        TODO:
+            - Rename references to Aud - can be A or V
+            - Rename references to train - can be any set with labels
+        """
+        
+        mod = self.mod
+        # xTrainExpAud = np.expand_dims(self.xTrainAud, 2)
+        
+        xTrainAud, xTrainExpAud, yTrainAud, yTrainExpAud, yTrainRAud, yTrainDAud \
+            = dataSet
+        
+        # Predict from model
+        audRate, audDec = \
+            mod.predict(xTrainExpAud)
+        
+        print('Random single example:')
+        idx = np.random.randint(audRate.shape[0])
+        print('Stim, events:')    
+        plt.plot(xTrainAud[idx,:])
+        plt.plot(yTrainAud[idx,:])
+        plt.show()
+        
+        # Also get output from conv -> flatten for this example
+        if layerName != '':
+            print(layerName)      
+            interMod = Model(inputs=mod.input, 
+                             outputs=mod.get_layer(layerName).output)
+            intOut = interMod.predict(np.expand_dims(xTrainExpAud[0,:,:], 
+                                                     axis=0))
     
-    print('Mean event distribution in set:')
-    plt.plot(np.mean(np.abs(soundsAud), axis=0))
-    plt.plot(np.mean(eventsAud, axis=0))
-    plt.plot(np.mean(yTrainAud, axis=0))
-    plt.show()
+            print(layerName, 'output:')
+            if trans:
+                plt.plot(np.transpose(intOut.squeeze()))
+            else:
+                plt.plot(intOut.squeeze())
+                
+            plt.show()
+            print('Layer output shape:')
+            print(intOut.shape)
     
-    acc = np.sum(yTrainDAud[:,1] == (audDec[:,1]>0.5))/yTrainDAud.shape[0]
-    loss = np.mean(abs(audRate.squeeze() - yTrainRAud.squeeze()))
-    print('Overall rate loss:', loss)
-    print('Overall dec acc:', acc)
+        print('Pred rate:', audRate[idx])
+        print('Pred dec:', audDec[idx])
+        print('GT:', yTrainRAud[idx])
+        
+        # Claculate accuracies
+        decAcc = np.sum(yTrainDAud[:,1] == (audDec[:,1]>0.5))\
+                        /yTrainDAud.shape[0]
+        rateAcc = np.sum(yTrainRAud == audRate)\
+                        /yTrainDAud.shape[0]
+        # Calculate rate loss                        
+        rateLoss = np.mean(abs(audRate.squeeze() - yTrainRAud.squeeze()))
+        
+        print('Overall rate loss:', rateLoss)
+        print('Overall dec acc:', decAcc)
+        
+        self.results[setName+'RateLoss'] = rateLoss 
+        self.results[setName+'RateAcc'] = rateAcc
+        self.results[setName+'DecAcc'] = decAcc
+        
+        return self
     
-    return loss, acc
-
+    @staticmethod
+    def plotDist(data):
+        # WIP
+        print('Mean event distribution in set:')
+        plt.plot(np.mean(np.abs(soundsAud), axis=0))
+        plt.plot(np.mean(eventsAud, axis=0))
+        plt.plot(np.mean(yTrainAud, axis=0))
+        plt.show()
+        
+    
+    def printComp(self, setName=['train', 'test'], note=''):    
+        for s in setName:
+            self.printResult(setName=s, note=note)
+            
               
-def printLossAcc(trainLoss, trainAcc, testLoss, testAcc, note=''):
-    print('--'*20)
-    print(note)
-    print('   Train:')
-    print('      Loss:', str(trainLoss)+', Acc;', np.round(trainAcc,2))
-    print('Test:')
-    print('      Loss:', str(testLoss)+', Acc;', np.round(testAcc,2))
-    print('--'*20)
+    def printResult(self, setName='train', note=''):
+        print('--'*20)
+        print(self.name)
+        print(note)
+        print('   '+setName+':')
+        print('      Rate Loss:', str(self.results[setName+'RateLoss']), 
+              'Rate Acc: '+str(np.round(self.results[setName+'RateAcc'],2))+'%')
+        print('      Dec Acc: '+str(np.round(self.results[setName+'DecAcc'],2))+'%')
 
 
+
+#%% WIP
 def evalAVMod(mod, xTrainAud, yTrainAud, yTrainRAud, yTrainDAud, soundsAud, eventsAud, 
               xTrainVis, yTrainVis, yTrainRVis, yTrainDVis, soundsVis, eventsVis):
     """
