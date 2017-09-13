@@ -17,6 +17,13 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Folders
+Backups
+Data
+
+# Files
+*.pyc
+
 # =========================
 # Operating System Files
 # =========================

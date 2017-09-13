@@ -1,0 +1,240 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Sep 12 14:01:41 2017
+
+@author: Gareth
+"""
+
+#%% Imports
+
+# Reload libraries that might have been edited
+import importlib as il
+import LSTMModels
+il.reload(LSTMModels)
+import ConvModels
+il.reload(ConvModels)
+import utils
+il.reload(utils)
+# And import functions from them
+from utils import loadMatAV, simpleSplit, evalSingleChanMod, printLossAcc
+
+from keras import backend as K
+
+import matplotlib.pyplot as plt
+
+
+#%% Import data set
+
+dPath = 'Data/'
+dSet = 'stimData_AV_s11_10000x400.mat'
+
+# Load the dataset
+eventsAud, soundsAud, ratesAud, decAud, \
+eventsVis, soundsVis, ratesVis, decVis = \
+loadMatAV(dPath+dSet, plotOn=True)
+
+# Split the data set in to test and train
+# Returns x with and without exanded dimensions
+# y (for A, V sequences) with and without expanded dimensions
+# y (for AV rate - assumes equal rate for A and V at the moment) as scale
+# y (for AV decision) as binary
+xTrainAud, xTrainExpAud, yTrainAud, yTrainExpAud, yTrainRAud, yTrainDAud, \
+xTestAud, xTestExpAud, yTestAud, yTestExpAud, yTestRAud, yTestDAud = \
+simpleSplit(soundsAud, eventsAud, ratesAud, decAud, 7000)
+
+xTrainVis, xTrainExpVis, yTrainVis, yTrainExpVis, yTrainRVis, yTrainDVis, \
+xTestVis, xTestExpVis, yTestVis, yTestExpVis, yTestRVis, yTestDVis = \
+simpleSplit(soundsVis, eventsVis, ratesVis, decVis, 7000)
+
+
+#%% Fit two independent single channel models
+"""
+Convolutional
+
+Example run with stimData_AV_s11_10000x400.mat and settings:
+    nDims=256, ks=128, strides=32
+    batch_size=150, epochs=75, validation_split=0.2
+----------------------------------------
+A channel, conv
+   Train:
+      Loss: 1.44146, Acc; 0.84
+Test:
+      Loss: 1.49312, Acc; 0.84
+----------------------------------------
+----------------------------------------
+V channel, conv
+   Train:
+      Loss: 0.596947, Acc; 0.85
+Test:
+      Loss: 0.595911, Acc; 0.84
+----------------------------------------
+
+"""
+
+K.clear_session()
+
+modAConv = ConvModels.simpleConv1D(xTrainExpAud, nDims=256, ks=128, strides=32)
+modVConv = ConvModels.simpleConv1D(xTrainExpVis, nDims=256, ks=128, strides=32)
+
+# Note assuming all matached rates here so AVRate and AVDec same between 
+# modalities (just using aud here:)
+historyA = modAConv.fit(xTrainExpAud,
+            [yTrainRAud, yTrainDAud], # AV
+            batch_size=500, epochs=75, validation_split=0.2)
+historyV = modVConv.fit(xTrainExpVis,
+            [yTrainRVis, yTrainDVis], # AV
+            batch_size=500, epochs=75, validation_split=0.2)
+
+plt.plot(historyA.history['loss'])
+plt.plot(historyA.history['val_loss'])
+plt.show()
+plt.plot(historyV.history['loss'])
+plt.plot(historyV.history['val_loss'])
+plt.show()
+
+# Predict
+audRate, audDec = modAConv.predict(xTrainExpAud)
+# Predict
+visRate, visDec = modVConv.predict(xTrainExpVis)
+
+# Full training set - A
+modAConvTrainLoss, modAConvTrainAcc = evalSingleChanMod(modAConv, 
+              xTrainAud, yTrainAud, yTrainRAud, yTrainDAud, 
+              soundsAud, eventsAud, layerName='audConv_l1')
+
+# Test set - A
+modAConvTestLoss, modAConvTestAcc = evalSingleChanMod(modAConv, 
+              xTestAud, yTestAud, yTestRAud, yTestDAud, 
+              soundsAud, eventsAud, layerName='audConv_l1')
+
+# Full training set - V
+modVConvTrainLoss, modVConvTrainAcc =evalSingleChanMod(modVConv, 
+              xTrainVis, yTrainVis, yTrainRVis, yTrainDVis, 
+              soundsVis, eventsVis, layerName='audConv_l1')
+
+# Test set - V
+modVConvTestLoss, modVConvTestAcc = evalSingleChanMod(modVConv, 
+              xTestVis, yTestVis, yTestRVis, yTestDVis, 
+              soundsVis, eventsVis, layerName='audConv_l1')
+
+    
+printLossAcc(modAConvTrainLoss, modAConvTrainAcc, 
+             modAConvTestLoss, modAConvTestAcc, note='A channel, conv')
+printLossAcc(modVConvTrainLoss, modVConvTrainAcc, 
+             modVConvTestLoss, modVConvTestAcc, note='V channel, conv')
+
+
+#%% Fit two independent single channel models
+""" 
+LSTM
+
+Example run with stimData_AV_s11_10000x400.mat and settings:
+    nDims=256
+    batch_size=150, epochs=75, validation_split=0.2
+    Both reach 100% accuracy with >100 epochs
+----------------------------------------
+A channel, LSTM
+   Train:
+      Loss: 0.253548, Acc; 1.0
+Test:
+      Loss: 0.270073, Acc; 1.0
+----------------------------------------
+----------------------------------------
+V channel, LSTM
+   Train:
+      Loss: 0.474363, Acc; 0.84
+Test:
+      Loss: 0.475426, Acc; 0.84
+----------------------------------------
+
+"""
+
+K.clear_session()
+
+modALSTM = LSTMModels.simpleLSTM1D(xTrainExpAud, nDims=256)
+modVLSTM = LSTMModels.simpleLSTM1D(xTrainExpVis, nDims=256)
+
+# Note assuming all matached rates here so AVRate and AVDec same between 
+# modalities (just using aud here:)
+historyA = modALSTM.fit(xTrainExpAud,
+            [yTrainRAud, yTrainDAud], # AV
+            batch_size=150, epochs=100, validation_split=0.2)
+historyV = modVLSTM.fit(xTrainExpVis,
+            [yTrainRVis, yTrainDVis], # AV
+            batch_size=150, epochs=150, validation_split=0.2)
+
+plt.plot(historyA.history['loss'])
+plt.plot(historyA.history['val_loss'])
+plt.show()
+plt.plot(historyV.history['loss'])
+plt.plot(historyV.history['val_loss'])
+plt.show()
+
+# Predict
+audRate, audDec = modALSTM.predict(xTrainExpAud)
+# Predict
+visRate, visDec = modVLSTM.predict(xTrainExpVis)
+
+# Full training set - A
+modALSTMTrainLoss, modALSTMTrainAcc = evalSingleChanMod(modALSTM, 
+              xTrainAud, yTrainAud, yTrainRAud, yTrainDAud, 
+              soundsAud, eventsAud, layerName='audLSTM_l1', trans=False)
+
+# Test set - A
+modALSTMTestLoss, modALSTMTestAcc = evalSingleChanMod(modALSTM, 
+              xTestAud, yTestAud, yTestRAud, yTestDAud, 
+              soundsAud, eventsAud, layerName='audLSTM_l1', trans=False)
+
+# Full training set - V
+modVLSTMTrainLoss, modVLSTMTrainAcc = evalSingleChanMod(modVLSTM, 
+              xTrainVis, yTrainVis, yTrainRVis, yTrainDVis, 
+              soundsVis, eventsVis, layerName='audLSTM_l1', trans=False)
+
+# Test set - V
+modVLSTMTestLoss, modVLSTMTestAcc = evalSingleChanMod(modVLSTM, 
+              xTestVis, yTestVis, yTestRVis, yTestDVis, 
+              soundsVis, eventsVis, layerName='audLSTM_l1', trans=False)
+
+printLossAcc(modALSTMTrainLoss, modALSTMTrainAcc, 
+             modALSTMTestLoss, modALSTMTestAcc, note='A channel, LSTM')
+printLossAcc(modVLSTMTrainLoss, modVLSTMTrainAcc, 
+             modVLSTMTestLoss, modVLSTMTestAcc, note='V channel, LSTM')
+
+
+#%% Print comparison
+
+printLossAcc(modALSTMTrainLoss, modALSTMTrainAcc, 
+             modALSTMTestLoss, modALSTMTestAcc, note='A channel, LSTM')
+printLossAcc(modVLSTMTrainLoss, modVLSTMTrainAcc, 
+             modVLSTMTestLoss, modVLSTMTestAcc, note='V channel, LSTM')
+printLossAcc(modAConvTrainLoss, modAConvTrainAcc, 
+             modAConvTestLoss, modAConvTestAcc, note='A channel, conv')
+printLossAcc(modVConvTrainLoss, modVConvTrainAcc, 
+             modVConvTestLoss, modVConvTestAcc, note='V channel, conv')
+
+
+#%% Fit a multichannel model
+# Convolutional
+
+
+#%% Fit a multichannel model
+# LSTM
+K.clear_session()
+
+mod = LSTMModels.lateAccum(xTrainExpAud, xTrainExpVis, nPts=12)
+
+# Note assuming all matached rates here so AVRate and AVDec same between 
+# modalities (just using aud here:)
+history = mod.fit([xTrainAud, xTrainExpVis],
+            [yTrainAud, yTrainRAud, # Aud
+             yTrainVis, yTrainRVis, # Vis
+             yTrainRAud, yTrainDAud], # AV
+            batch_size=1, epochs=50, validation_split=0.2)
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.show()
+
+# Predict
+audLSTM, audRate, visLSTM, visRate, AVRate, AVDec = \
+mod.predict([xTrainExpAud, xTrainExpVis])
