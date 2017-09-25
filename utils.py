@@ -99,11 +99,27 @@ class dataHelpers():
         print(note)
         print(rates[idx])
         print(dec[idx])
-   
+
+    
+    def plotDist(self, idx):
         
+        print('Mean event distribution in aud set:')
+        plt.plot(np.mean(np.abs(self.soundsA[idx,:]), axis=0))
+        plt.plot(np.mean(self.eventsA[idx,:], axis=0))
+        plt.plot(np.mean(self.yTrainAUd[idx,:], axis=0))
+        plt.show()
+
+        print('Mean event distribution in vis set:')
+        plt.plot(np.mean(np.abs(self.soundsV[idx,:]), axis=0))
+        plt.plot(np.mean(self.eventsV[idx,:], axis=0))
+        plt.plot(np.mean(self.yTrainVis[idx,:], axis=0))
+        plt.show()
+
+ 
     def split(self, n=250):
         for s in ['Aud', 'Vis']:
             if s=='Aud':
+                self.idxTrainAud, self.idxTestAud, \
                 self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
                 self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud, \
                 self.xTestAud, self.xTestExpAud, self.yTestAud, \
@@ -114,6 +130,7 @@ class dataHelpers():
                                             self.decA, 
                                             n=n)
             elif s=='Vis':
+                self.idxTrainVis, self.idxTestVis, \
                 self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
                 self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis, \
                 self.xTestVis, self.xTestExpVis, self.yTestVis, \
@@ -133,15 +150,23 @@ class dataHelpers():
         Split in to test and train sets, assumes already shuffled.
         Returns multiple shapes of data for convenience
         """
-        xTrain = sounds[0:n,:]
-        yTrain = events[0:n,:]
-        yTrainR = rates[0:n]
-        yTrainD = dec[0:n,:]
         
-        xTest = sounds[n::,:]
-        yTest = events[n::,:]
-        yTestR = rates[n::]
-        yTestD = dec[n::,:]
+        idxTrain = np.zeros(sounds.shape[0])
+        idxTrain[0:n] = 1
+        idxTrain = idxTrain.astype(np.bool)
+        idxTest = np.zeros(sounds.shape[0])
+        idxTest[n::] = 1
+        idxTest = idxTest.astype(np.bool)
+        
+        xTrain = sounds[idxTrain,:]
+        yTrain = events[idxTrain,:]
+        yTrainR = rates[idxTrain]
+        yTrainD = dec[idxTrain,:]
+        
+        xTest = sounds[idxTest,:]
+        yTest = events[idxTest,:]
+        yTestR = rates[idxTest]
+        yTestD = dec[idxTest,:]
         
         # Needed when extracting sequence from LSTM layers
         xTrainExp = np.expand_dims(xTrain, axis=2)
@@ -149,22 +174,27 @@ class dataHelpers():
         yTrainExp = np.expand_dims(yTrain, axis=2)
         yTestExp = np.expand_dims(yTest, axis=2)
     
-        return xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, xTest, \
+        return idxTrain, idxTest, \
+            xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, xTest, \
             xTestExp, yTest, yTestExp, yTestR, yTestD
             
             
     def trainSet(self, w='Aud'):
         if w=='Aud':
-            return self.xTrainAud, self.xTrainExpAud, self.yTrainAud, self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud
+            return self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
+                    self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud
         elif w=='Vis':
-            return self.xTrainVis, self.xTrainExpVis, self.yTrainVis, self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis
+            return self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
+                    self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis
     
     
     def testSet(self, w='Aud'):
         if w=='Aud':
-            return self.xTestAud, self.xTestExpAud, self.yTestAud, self.yTestExpAud, self.yTestRAud, self.yTestDAud
+            return self.xTestAud, self.xTestExpAud, self.yTestAud, \
+                    self.yTestExpAud, self.yTestRAud, self.yTestDAud
         elif w=='Vis':
-            return self.xTestVis, self.xTestExpVis, self.yTestVis, self.yTestExpVis, self.yTestRVis, self.yTestDVis
+            return self.xTestVis, self.xTestExpVis, self.yTestVis, \
+                    self.yTestExpVis, self.yTestRVis, self.yTestDVis
         
             
 #%%
@@ -234,7 +264,7 @@ class singleChannelHelpers():
         # Claculate accuracies
         decAcc = np.sum(yTrainDAud[:,1] == (audDec[:,1]>0.5))\
                         /yTrainDAud.shape[0]
-        rateAcc = np.sum(yTrainRAud == audRate)\
+        rateAcc = np.sum(yTrainRAud == np.round(audRate))\
                         /yTrainDAud.shape[0]
         # Calculate rate loss                        
         rateLoss = np.mean(abs(audRate.squeeze() - yTrainRAud.squeeze()))
@@ -247,16 +277,6 @@ class singleChannelHelpers():
         self.results[setName+'DecAcc'] = decAcc
         
         return self
-    
-    @staticmethod
-    def plotDist(data):
-        # WIP
-        print('Mean event distribution in set:')
-        plt.plot(np.mean(np.abs(soundsAud), axis=0))
-        plt.plot(np.mean(eventsAud, axis=0))
-        plt.plot(np.mean(yTrainAud, axis=0))
-        plt.show()
-        
     
     def printComp(self, setName=['train', 'test'], note=''):    
         for s in setName:

@@ -67,7 +67,7 @@ classdef TemporalStim
         
         function obj = setParams(obj, params)
             % Set specified parameters
-            flds = fields(params);
+            flds = fieldnames(params);
             nFields = length(flds);
             
             for n = 1:nFields

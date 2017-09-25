@@ -9,9 +9,11 @@ Created on Tue Sep 12 14:01:41 2017
 
 # Reload libraries that might have been edited
 import importlib as il
+
 import LSTMModels
 il.reload(LSTMModels)
 from LSTMModels import LSTMModels
+
 import ConvModels
 il.reload(ConvModels)
 from ConvModels import ConvModels
@@ -20,7 +22,6 @@ import utils
 il.reload(utils)
 from utils import dataHelpers as dh
 
-# And import functions from them
 from keras import backend as K
 
 import matplotlib.pyplot as plt
@@ -29,10 +30,10 @@ import matplotlib.pyplot as plt
 #%% Import data set
 
 dPath = 'Data/'
-dSet = 'stimData_AV_s11_10000x400.mat'
+dSet = 'stimData_AV_s12_20000x400.mat'
 
 # Load the dataset
-data = dh(dPath+dSet, name='s11')
+data = dh(dPath+dSet, name='s12')
 data = data.loadMatAV()
 
 # Split the data set in to test and train
@@ -45,7 +46,10 @@ data = data.loadMatAV()
 # y (for A, V sequences) with and without expanded dimensions
 # y (for AV rate - assumes equal rate for A and V at the moment) as scale
 # y (for AV decision) as binary
-data = data.split(n=7000)
+data = data.split(n=12000)
+
+data.plotDist(idx = data.idxTrainVis)
+data.plotDist(idx = data.idxTestVis)
 
 
 #%% Fit two independent single channel models
@@ -83,10 +87,10 @@ modVConv = ConvModels(name='VConv').simple(data.xTrainExpVis,
 # modalities (just using aud here:)
 historyA = modAConv.mod.fit(data.xTrainExpAud,
             [data.yTrainRAud, data.yTrainDAud], # AV
-            batch_size=500, epochs=125, validation_split=0.2)
+            batch_size=500, epochs=5000, validation_split=0.2)
 historyV = modVConv.mod.fit(data.xTrainExpVis,
             [data.yTrainRVis, data.yTrainDVis], # AV
-            batch_size=500, epochs=125, validation_split=0.2)
+            batch_size=500, epochs=5000, validation_split=0.2)
 
 plt.plot(historyA.history['loss'])
 plt.plot(historyA.history['val_loss'])

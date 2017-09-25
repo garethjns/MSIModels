@@ -66,7 +66,8 @@ class ConvModels(singleChannelHelpers):
                       outputs=[rateOutput, decOutput])
         
         # Complile with weighted losses
-        model.compile(optimizer='rmsprop', loss='mse',
+        rmsprop = optimizers.rmsprop(lr=0.0001)
+        model.compile(optimizer=rmsprop, loss='mse',
                       loss_weights=[0.5, 0.5], 
                       metrics=['accuracy'])
     
