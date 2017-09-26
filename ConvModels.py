@@ -26,7 +26,7 @@ class ConvModels(singleChannelHelpers):
         self.name = name
         pass
 
-    def simple(self, x1, nDims=128, ks=512, strides=256):
+    def simple(self, x1, nFil=128, ks=512, strides=256):
         """
         1 Channel (A or V)
         Rate and decision output
@@ -44,7 +44,7 @@ class ConvModels(singleChannelHelpers):
         inp = Input(shape=(x1Width,1), dtype='float32', name='input')
         
         # Aud LSTM    
-        conv = Conv1D(nDims, kernel_size= ks, strides=strides, 
+        conv = Conv1D(nFil, kernel_size= ks, strides=strides, 
                          input_shape=(x1Width,1), 
                          name='audConv_l1')(inp)
         conv = Flatten(name='audConv_l2')(conv) 

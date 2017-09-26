@@ -21,6 +21,10 @@ $RECYCLE.BIN/
 Backups
 Data
 
+# MATLAB
+*.asv
+*.fig
+
 # Files
 *.pyc
 

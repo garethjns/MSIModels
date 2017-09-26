@@ -52,7 +52,7 @@ data.plotDist(idx = data.idxTrainVis)
 data.plotDist(idx = data.idxTestVis)
 
 
-#%% Fit two independent single channel models
+#%% Fit two independent single channel models (Conv)
 """
 Convolutional
 
@@ -79,18 +79,18 @@ Test:
 K.clear_session()
 
 modAConv = ConvModels(name='AConv').simple(data.xTrainExpAud, 
-                                   nDims=256, ks=128, strides=32)
+                                   nFil=256, ks=128, strides=32)
 modVConv = ConvModels(name='VConv').simple(data.xTrainExpVis, 
-                                   nDims=256, ks=128, strides=32)
+                                   nFil=256, ks=128, strides=32)
 
 # Note assuming all matached rates here so AVRate and AVDec same between 
 # modalities (just using aud here:)
 historyA = modAConv.mod.fit(data.xTrainExpAud,
             [data.yTrainRAud, data.yTrainDAud], # AV
-            batch_size=500, epochs=5000, validation_split=0.2)
+            batch_size=500, epochs=2000, validation_split=0.2)
 historyV = modVConv.mod.fit(data.xTrainExpVis,
             [data.yTrainRVis, data.yTrainDVis], # AV
-            batch_size=500, epochs=5000, validation_split=0.2)
+            batch_size=500, epochs=2000, validation_split=0.2)
 
 plt.plot(historyA.history['loss'])
 plt.plot(historyA.history['val_loss'])
@@ -113,7 +113,7 @@ modAConv.printComp()
 modVConv.printComp()
 
 
-#%% Fit two independent single channel models
+#%% Fit two independent single channel models (LSTM)
 """ 
 LSTM
 
