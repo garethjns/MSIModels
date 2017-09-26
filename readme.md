@@ -71,7 +71,7 @@ A number of models are planned for be implementation here:
 
 ## Single channel models
 ### LSTM (Keras)
-````PYTHON
+```PYTHON
 # Prepare inputs
 x1Width = x1.shape[1] # Also aud lstm output width
         
@@ -104,10 +104,10 @@ model.compile(optimizer='rmsprop', loss='mse',
                loss_weights=[0.5, 0.5], 
                metrics=['accuracy'])
       
-````
+```
 
 ### Conv1D (Keras)
-````
+```PYTHON
  # Prepare inputs
  x1Width = x1.shape[1] # Also aud lstm output width
       
@@ -141,10 +141,10 @@ model.compile(optimizer='rmsprop', loss='mse',
  model.compile(optimizer=rmsprop, loss='mse',
                loss_weights=[0.5, 0.5], 
                 metrics=['accuracy'])
-````
+```
 
 ### Conv1D (MATLAB)
-````MATLAB
+```Matlab 
 inp = imageInputLayer([1, x1Width], 'Name', 'input');
 conv1 = convolution2dLayer([1, ks], nFil, ...
     'Stride', [1, 32], 'Name', 'conv_l1');
@@ -172,7 +172,7 @@ lGraph = connectLayers(lGraph, 'conv_l3', 'rate_l1');
 % Add decision layers - can't add second output layer
 lGraph = addLayers(lGraph, [decOutput1, decOutput2]);
 lGraph = connectLayers(lGraph, 'rate_l5', 'dec_l1');
-````
+```
 
 ![DAG](https://github.com/garethjns/MSIModels/blob/master/Images/conv1DDAG.png) 
 
