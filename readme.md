@@ -35,6 +35,8 @@ For visual channel, an event is a short flash (20 ms), for the auditory channel,
 
 Currently, the number of events is the same for the A and V channels, but the distribution of events can differ.
 
+![Example stim](https://github.com/garethjns/MSIModels/blob/master/Images/stimExample.png) 
+
 ## Task
 The task of the subject (human or ANN) is to classify a given stimulus - which could be auditory only, visual only, or AV as "fast" or "slow".
 
@@ -140,6 +142,39 @@ model.compile(optimizer='rmsprop', loss='mse',
                loss_weights=[0.5, 0.5], 
                 metrics=['accuracy'])
 ````
+
+### Conv1D (MATLAB)
+````MATLAB
+inp = imageInputLayer([1, x1Width], 'Name', 'input');
+conv1 = convolution2dLayer([1, ks], nFil, ...
+    'Stride', [1, 32], 'Name', 'conv_l1');
+conv3 = dropoutLayer(0.3, 'Name', 'conv_l3');
+
+% Create layers to make rate estimation
+a1 = fullyConnectedLayer(x1Width/2, 'Name', 'rate_l1');
+a2 = reluLayer('Name', 'rate_l2');
+a3 = dropoutLayer(0.15, 'Name', 'rate_l3');
+rateOutput1 = fullyConnectedLayer(1, 'Name', 'rate_l4');
+rateOutput2 = reluLayer('Name', 'rate_l5');
+rateOutput3 = regressionLayer('Name', 'rateOutput');
+
+% Create layers to make final, "fast" or "slow" decision
+decOutput1 = fullyConnectedLayer(2, 'Name', 'dec_l1');
+decOutput2 = softmaxLayer('Name', 'dec_l2');
+decOutput3 = classificationLayer('Name', 'decOutput');
+
+% Add input layers
+lGraph = layerGraph([inp, conv1, conv3]);
+% Add rate layers
+lGraph = addLayers(lGraph, ...
+    [a1, a2, a3, rateOutput1, rateOutput2, rateOutput3]);
+lGraph = connectLayers(lGraph, 'conv_l3', 'rate_l1');
+% Add decision layers - can't add second output layer
+lGraph = addLayers(lGraph, [decOutput1, decOutput2]);
+lGraph = connectLayers(lGraph, 'rate_l5', 'dec_l1');
+````
+
+![DAG](https://github.com/garethjns/MSIModels/blob/master/Images/conv1DDAG.png) 
 
 # Multi-channel models
 - WIP
