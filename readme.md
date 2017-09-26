@@ -29,7 +29,7 @@ Behavioural evidence implies late integration occurs [[2]](http://www.jneurosci.
 
 
 ## Data/stimuli
-The stimuli used here are the same as used in a number of psychophysical tasks. They consist of an auditory and visual channel, each of which are around 1 second long and contain "events" embedded in a noisy background.
+The stimuli used here are the same as used in a number of psychophysical tasks. They consist of an auditory and visual channel, each of which are around 1 second long and contain "events" embedded in a noisy background. The data are in the form of raw voltage traces to drive speakers (AC) and LEDs (rectified), in order to necessitate some form of event detection by the ANN that differs between the channels.
 
 For visual channel, an event is a short flash (20 ms), for the auditory channel, a short tone pip (20 ms).
 
