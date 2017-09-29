@@ -12,19 +12,21 @@ from keras.layers import Dense, Dropout, Flatten, Input, Embedding, concatenate
 from keras.layers import LSTM
 from keras import optimizers
 
-from utils import singleChannelHelpers
+import importlib as il
+import utils
+il.reload(utils)
 
 
 #%% Models
 
-class LSTMModels(singleChannelHelpers):
+class LSTMModels(utils.modPassThrough):
     def __init__(self, name=''):
         self.results = dict()
         self.name = name
 
-    def seqLSTM(self, data, nPts=128):
+    def seqLSTM(self, dataLength=512, nPts=128):
         
-        timeSteps = data.shape[1]
+        timeSteps = dataLength
         
         model = Sequential()
         model.add(Embedding(timeSteps, output_dim=timeSteps))
@@ -39,7 +41,7 @@ class LSTMModels(singleChannelHelpers):
         return model
     
     
-    def simple(self, x1, nDims=128):
+    def simple(self, dataLength=512, nDims=128):
         """
         1 Channel (A or V)
         Rate and decision output
@@ -51,19 +53,19 @@ class LSTMModels(singleChannelHelpers):
         """
         
         # Prepare inputs
-        x1Width = x1.shape[1] # Also aud lstm output width
+        x1Len = dataLength # Also aud lstm output width
         
         # Create Input layers
-        inp = Input(shape=(x1Width,1), dtype='float32', name='input')
+        inp = Input(shape=(x1Len, 1), dtype='float32', name='input')
         
         # Aud LSTM    
-        lstm = LSTM(nDims, input_shape=(x1Width,1), 
+        lstm = LSTM(nDims, input_shape=(x1Len, 1), 
                        return_sequences=True, name='LSTM_l1')(inp)
         lstm = Flatten(name='LSTM_l2')(lstm) 
         lstm = Dropout(0.3, name='LSTM_l3')(lstm) 
         
         # Aud dense layers
-        a = Dense(int(x1Width/2), activation='relu', 
+        a = Dense(int(x1Len/2), activation='relu', 
                   name='rate_l1')(lstm)
         a = Dropout(0.15, name='rate_l2')(a)
         rateOutput = Dense(1, activation='relu', 
@@ -89,7 +91,7 @@ class LSTMModels(singleChannelHelpers):
         return self
     
     
-    def lateAccum(self, x1Aud, x1Vis, nPts=128):
+    def lateAccum(self, dataLength=512, nPts=128):
         """
         Seperate sensory processing
         Seperate accumulation and decision
@@ -102,38 +104,37 @@ class LSTMModels(singleChannelHelpers):
         """
         
         # Prepare inputs
-        x1AudWidth = x1Aud.shape[1] # Also aud lstm output width
-        x1VisWidth = x1Vis.shape[1] # Also vis lstm output width
+        xLen = dataLength
         
         # Create Input layers
-        audInput = Input(shape=(x1AudWidth,1), dtype='float32', name='audInput')
-        visInput = Input(shape=(x1VisWidth,1), dtype='float32', name='visInput')
+        audInput = Input(shape=(xLen, 1), dtype='float32', name='audInput')
+        visInput = Input(shape=(xLen, 1), dtype='float32', name='visInput')
         
         # Aud LSTM    
-        audLSTM = LSTM(nPts, input_shape=(x1AudWidth,1), 
+        audLSTM = LSTM(nPts, input_shape=(xLen,1), 
                        return_sequences=True, name='audLSTM_l1')(audInput)
         audLSTM = Flatten(name='audLSTM_l2')(audLSTM) 
         audLSTM = Dropout(0.3, name='audLSTM_l3')(audLSTM) 
-        audLSTMOutput = Dense(x1AudWidth, name='audLSTMOutput', 
+        audLSTMOutput = Dense(xLen, name='audLSTMOutput', 
                               activation='relu')(audLSTM)
         
         # Vis LSTM    
-        visLSTM = LSTM(nPts, input_shape=(x1VisWidth,1), 
+        visLSTM = LSTM(nPts, input_shape=(xLen,1), 
                        return_sequences=True, name='visLSTM_l1')(visInput)
         visLSTM = Dropout(0.3, name='visLSTM_l2')(visLSTM) 
         visLSTM = Flatten(name='visLSTM_l3')(visLSTM) 
-        visLSTMOutput = Dense(x1AudWidth, name='visLSTMOutput', 
+        visLSTMOutput = Dense(xLen, name='visLSTMOutput', 
                               activation='relu')(visLSTM)
         
         # Aud dense layers
-        a = Dense(int(x1AudWidth/2), activation='sigmoid', 
+        a = Dense(int(xLen/2), activation='sigmoid', 
                   name='audRate_l1')(audLSTMOutput)
         a = Dropout(0.15, name='audRate_l2')(a)
         audRateOutput = Dense(1, activation='relu', 
                               name='audRateOutput')(a)
         
         # Vis dense layers
-        v = Dense(int(x1VisWidth/2), activation='sigmoid', 
+        v = Dense(int(xLen/2), activation='sigmoid', 
                   name='visRate_l1')(visLSTMOutput)
         v = Dropout(0.15, name='visRate_l2')(v)
         visRateOutput = Dense(1, activation='relu', 

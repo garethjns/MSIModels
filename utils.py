@@ -24,7 +24,27 @@ from sklearn.preprocessing import minmax_scale as MMS, OneHotEncoder
 
 from keras.models import Model
 
+import importlib as il
 
+
+#%% .mod passthrough
+
+class modPassThrough():
+    """
+    Pass calls to .fit and .predict to .mod.fit and .mod.predict
+    Handy for any layer of abstraction away from actual keras model
+    eg. multiChannelMod.fit() -> convMod.multiChan.fit() -> keras.fit()
+    Can call AVMod.fit() instead of AVmod.mod.mod.fit()
+    """
+    def fit(self, *args, **kwargs):
+        return self.mod.fit(*args, **kwargs)
+    
+    def predict(self, *args, **kwargs):
+        return self.mod.predict(*args, **kwargs)
+    
+    def name(self):
+        return self.mod.name
+    
 
 #%% Functions
 
@@ -197,11 +217,11 @@ class dataHelpers():
                     self.yTestExpVis, self.yTestRVis, self.yTestDVis
         
             
-#%%
+#%% Single channel model class
 
-class singleChannelHelpers():
-    def __init__(self):
-        self.mod = []
+class singleChannelMod(modPassThrough):
+    def __init__(self, mod, dataLength=512, **kwargs):
+        self.mod = mod(dataLength, **kwargs)
         self.results = dict()
         
    
@@ -285,7 +305,7 @@ class singleChannelHelpers():
               
     def printResult(self, setName='train', note=''):
         print('--'*20)
-        print(self.name)
+        print(self.name())
         print(note)
         print('   '+setName+':')
         print('      Rate Loss:', str(self.results[setName+'RateLoss']), 
@@ -294,116 +314,145 @@ class singleChannelHelpers():
 
 
 
-#%% WIP
-def evalAVMod(mod, xTrainAud, yTrainAud, yTrainRAud, yTrainDAud, soundsAud, eventsAud, 
-              xTrainVis, yTrainVis, yTrainRVis, yTrainDVis, soundsVis, eventsVis):
-    """
-    Not fully implemented yet
+#%% Multi-channel model class
+ 
+class multiChannelMod(modPassThrough):
+    def __init__(self, mod, dataLength=512, **kwargs):
+        
+        self.mod = mod(dataLength, **kwargs)
+        self.results = dict()
+        
     
+    def evaluate(self, dataSet, setName='train', layerName='', trans=True):
+        
+        """
+        Eval and plot for model with
+        inputs=[audInput, visInput],
+        outputs=[audRateOutput, visRateOutput, audRateOutput, AVDecOutput]
+        eg. ConvModels.multiChan
+        
+        - Plots a random single example
+        - And named layer output
+        - Then overall loss and accuracy for set
+        
+        TODO:
+            - Add support of variable number of model outputs
+        """
+        
+        # Preallocate the following possible metrics
+        # Will depend on actual model outputs
+        rateLossA = np.nan
+        rateLossV = np.nan
+        rateLossAV = np.nan
+        rateAccA = np.nan
+        rateAccV = np.nan
+        rateAccAV = np.nan
+        decAccA = np.nan
+        decAccV = np.nan
+        decAccAV = np.nan
+        
+        mod = self.mod
+        
+        xTrainAud, xTrainExpAud, yTrainAud, \
+        yTrainExpAud, yTrainRAud, yTrainDAud \
+            = dataSet.trainSet(w='Aud')
+            
+        xTrainVis, xTrainExpVis, yTrainVis, \
+        yTrainExpVis, yTrainRVis, yTrainDVis \
+            = dataSet.trainSet(w='Vis')
+        
+        # Predict from model
+        audRate, visRate, AVRate, AVDec = \
+            self.predict([xTrainExpAud, xTrainExpVis])
+        
+        print('Random example:')
+        idx = np.random.randint(audRate.shape[0])
+        print('Stim, events:')    
+        plt.plot(xTrainAud[idx,:])
+        plt.plot(xTrainVis[idx,:])
+        plt.plot(yTrainAud[idx,:])
+        plt.plot(yTrainVis[idx,:])
+        plt.show()
+        
+        # Also get output from conv -> flatten for this example
+        if layerName != '':
+            print(layerName)      
+            interMod = Model(inputs=mod.input, 
+                             outputs=mod.get_layer(layerName).output)
+            intOut = interMod.predict(np.expand_dims(xTrainExpAud[0,:,:], 
+                                                     axis=0))
     
-    Eval and plot for model AV input and 5 outputs
-    inputs=[audInput, visInput],
-    outputs=[audLSTMOutput, audRateOutput, 
-             visLSTMOutput, visRateOutput,
-             AVRate, AVDec]
+            print(layerName, 'output:')
+            if trans:
+                plt.plot(np.transpose(intOut.squeeze()))
+            else:
+                plt.plot(intOut.squeeze())
+                
+            plt.show()
+            print('Layer output shape:')
+            print(intOut.shape)
     
-    eg. LSTMModels.lateAccumComplex and LSTMModels.earlyAccumComplex
+        print('Pred rate A | V:', audRate[idx], '|', visRate[idx])
+        print('GT rate A | V:', yTrainRAud[idx], '|', yTrainRAud[idx])
+        print('Pred dec AV:', AVDec[idx])
+        
+        
+        # Claculate accuracies
+        # Add: decAccA
+        # Add: decAccV
+        decAccAV = np.sum(yTrainDAud[:,1] == (AVDec[:,1]>0.5))\
+                        /yTrainDAud.shape[0]
+                        
+        rateAccA = np.sum(yTrainRAud == np.round(audRate))\
+                        /yTrainDAud.shape[0]
+        rateAccV = np.sum(yTrainRVis == np.round(visRate))\
+                        /yTrainDAud.shape[0]
+        rateAccAV = np.sum(yTrainRAud == np.round(AVRate))\
+                        /yTrainDAud.shape[0]                
+        # Calculate rate loss                        
+        rateLossA = np.mean(abs(audRate.squeeze() - yTrainRAud.squeeze()))
+        rateLossV = np.mean(abs(visRate.squeeze() - yTrainRVis.squeeze()))
+        rateLossAV = np.mean(abs(AVRate.squeeze() - yTrainRAud.squeeze()))
+        
+        # Print results
+        print('Overall rate loss A | V | AV:', 
+              np.round(rateLossA, 2), '|', 
+              np.round(rateLossV, 2), '|', 
+              np.round(rateLossAV, 2))
+        print('Overall acc loss A | V | AV:', 
+              np.round(rateAccA, 2), '|', 
+              np.round(rateAccV, 2), '|', 
+              np.round(rateAccAV, 2))
+        print('Overall dec acc A | V | AV:', 
+              np.round(decAccA, 2), '|', 
+              np.round(decAccV, 2), '|', 
+              np.round(decAccAV, 2))
+        
+        # Save results
+        self.results[setName+'rateLossA'] = rateLossA
+        self.results[setName+'rateLossV'] = rateLossV
+        self.results[setName+'rateLossAV'] = rateLossAV
+        self.results[setName+'rateAccA'] = rateAccA
+        self.results[setName+'rateAccV'] = rateAccV
+        self.results[setName+'rateAccAV'] = rateAccAV
+        self.results[setName+'decAccA '] = decAccA 
+        self.results[setName+'decAccV']= decAccV
+        self.results[setName+'decAccAV'] = decAccAV
+        
+        return self
 
-    TODO:
-        - Reimplement in similar way to evalSingleChanMod
-
-    """
-    print('Fix me first')          
-    return
     
-    xTrainExpAud = np.expand_dims(xTrainAud, 2)
-    xTrainExpVis = np.expand_dims(xTrainVis, 2)
-    
-    audLSTM, audRate, visLSTM, visRate, AVRate, AVDec = \
-        mod.predict([xTrainExpAud, xTrainExpVis])
-    
-
-    print('TRAIN:')
-    idx = np.random.randint(audRate.shape[0])
-    
-    plt.plot(xTrainAud[idx,:])
-    plt.plot(yTrainAud[idx,:])
-    plt.plot(audLSTM[idx,:])
-    plt.show()
-    plt.plot(xTrainVis[idx,:])
-    plt.plot(yTrainVis[idx,:])
-    plt.plot(visLSTM[idx,:])
-    plt.show()
-    
-    print('Aud:.')
-    plt.plot(np.mean(np.abs(soundsAud), axis=0))
-    plt.plot(np.mean(eventsAud, axis=0))
-    plt.plot(np.mean(yTrainAud, axis=0))
-    plt.show()
-
-    print('Pred:', audRate[idx])
-    print('GT:', yTrainRAud[idx])
-    
-    print('Vis:.')
-    plt.plot(np.mean(np.abs(soundsVis), axis=0))
-    plt.plot(np.mean(yTrainVis, axis=0))
-    plt.plot(np.mean(eventsVis, axis=0))
-    plt.show()
-
-    print('Pred:', visRate[idx])
-    print('GT:', yTrainRVis[idx])
-    print('AV:')
-    print('Pred:', AVRate[idx])
-    print('Dec:', AVDec[idx])
-    print('GT:', yTrainRVis[idx], '|', yTrainDVis[idx])
-    print('Overall train loss A:', 
-          np.mean(abs(audRate.squeeze() - yTrainRAud.squeeze())))
-    print('Overall train loss V:', 
-          np.mean(abs(visRate.squeeze() - yTrainRVis.squeeze())))
-    print('Overall train loss AV:', 
-          np.mean(abs(AVRate.squeeze() - yTrainRAud.squeeze())))
-    print('Overall train dec acc AV:', 
-          np.sum(yTrainDVis[:,1] == (AVDec[:,1]>0.5))/yTrainDVis.shape[0])
-    
-    audLSTM, audRate, visLSTM, visRate, AVRate, AVDec = \
-        mod.predict([xTestExpAud, xTestExpVis])
-    
-    print('TEST:')
-    idx = np.random.randint(audRate.shape[0])
-    
-    plt.plot(xTestAud[idx,:])
-    plt.plot(yTestAud[idx,:])
-    plt.plot(audLSTM[idx,:])
-    plt.show()
-    plt.plot(xTestVis[idx,:])
-    plt.plot(yTestVis[idx,:])
-    plt.plot(visLSTM[idx,:])
-    plt.show()
-    
-    print('Aud:.')
-    plt.plot(np.mean(np.abs(soundsAud), axis=0))
-    plt.plot(np.mean(eventsAud, axis=0))
-    plt.plot(np.mean(yTrainAud, axis=0))
-    plt.show()
-    print('Pred:', audRate[idx])
-    print('GT:', yTestRAud[idx])
-    
-    print('Vis:')
-    plt.plot(np.mean(np.abs(soundsVis), axis=0))
-    plt.plot(np.mean(yTrainVis, axis=0))
-    plt.plot(np.mean(eventsVis, axis=0))
-    print('Pred:', visRate[idx])
-    print('GT:', yTestRVis[idx])
-    print('AV:')
-    print('Pred:', AVRate[idx])
-    print('Dec:', AVDec[idx])
-    print('GT:', yTestRVis[idx], '|', yTestDVis[idx])
-    
-    print('Overall test loss A:', 
-          np.mean(abs(audRate.squeeze() - yTestRAud.squeeze())))
-    print('Overall test loss V:', 
-          np.mean(abs(visRate.squeeze() - yTestRVis.squeeze())))
-    print('Overall test loss AV:', 
-          np.mean(abs(AVRate.squeeze() - yTestRAud.squeeze())))
-    print('Overall test dec acc AV:', 
-          np.sum(yTestDVis[:,1] == (AVDec[:,1]>0.5))/yTestDVis.shape[0])
+    def printComp(self, setName=['train', 'test'], note=''):    
+        for s in setName:
+            self.printResult(setName=s, note=note)
+            
+              
+    def printResult(self, setName='train', note=''):
+        print('--'*20)
+        print(self.name())
+        print(note)
+        print('   '+setName+':')
+        print('      Rate Loss:', str(self.results[setName+'RateLoss']), 
+              'Rate Acc: '+str(np.round(self.results[setName+'RateAcc'],2))+'%')
+        print('      Dec Acc: '+str(np.round(self.results[setName+'DecAcc'],2))+'%')
+        

@@ -21,6 +21,7 @@ from ConvModels import ConvModels
 import utils
 il.reload(utils)
 from utils import dataHelpers as dh
+from utils import singleChannelMod as SCMod
 
 from keras import backend as K
 
@@ -78,19 +79,19 @@ Test:
 
 K.clear_session()
 
-modAConv = ConvModels(name='AConv').simple(data.xTrainExpAud, 
+modAConv = SCMod(ConvModels(name='AConv').simple, data.xTrainExpVis.shape[1], 
                                    nFil=256, ks=128, strides=32)
-modVConv = ConvModels(name='VConv').simple(data.xTrainExpVis, 
+modVConv =  SCMod(ConvModels(name='VConv').simple, data.xTrainExpVis.shape[1], 
                                    nFil=256, ks=128, strides=32)
 
 # Note assuming all matached rates here so AVRate and AVDec same between 
 # modalities (just using aud here:)
-historyA = modAConv.mod.fit(data.xTrainExpAud,
-            [data.yTrainRAud, data.yTrainDAud], # AV
-            batch_size=500, epochs=2000, validation_split=0.2)
-historyV = modVConv.mod.fit(data.xTrainExpVis,
-            [data.yTrainRVis, data.yTrainDVis], # AV
-            batch_size=500, epochs=2000, validation_split=0.2)
+historyA = modAConv.fit(data.xTrainExpAud,
+            [data.yTrainRAud, data.yTrainDAud], # A
+            batch_size=500, epochs=20, validation_split=0.2)
+historyV = modVConv.fit(data.xTrainExpVis,
+            [data.yTrainRVis, data.yTrainDVis], # V
+            batch_size=500, epochs=20, validation_split=0.2)
 
 plt.plot(historyA.history['loss'])
 plt.plot(historyA.history['val_loss'])
@@ -100,9 +101,9 @@ plt.plot(historyV.history['val_loss'])
 plt.show()
 
 # Predict
-audRate, audDec = modAConv.mod.predict(data.xTrainExpAud)
+audRate, audDec = modAConv.predict(data.xTrainExpAud)
 # Predict
-visRate, visDec = modVConv.mod.predict(data.xTrainExpVis)
+visRate, visDec = modVConv.predict(data.xTrainExpVis)
 
 modAConv = modAConv.evaluate(data.trainSet('Aud'), setName='train')
 modAConv = modAConv.evaluate(data.testSet('Aud'), setName='test')
@@ -140,17 +141,19 @@ Test:
 
 K.clear_session()
 
-modALSTM = LSTMModels(name='ALSTM').simple(data.xTrainExpAud, 
-                                   nDims=256)
-modVLSTM = LSTMModels(name='VLSTM').simple(data.xTrainExpVis, 
-                                   nDims=256)
+modALSTM = SCMod(LSTMModels(name='ALSTM').simple, 
+                 data.xTrainExpAud.shape[1], 
+                 nDims=256)
+modVLSTM = SCMod(LSTMModels(name='VLSTM').simple,
+                 data.xTrainExpVis.shape[1], 
+                 nDims=256)
 
 # Note assuming all matached rates here so AVRate and AVDec same between 
 # modalities (just using aud here:)
-historyA = modALSTM.mod.fit(data.xTrainExpAud,
+historyA = modALSTM.fit(data.xTrainExpAud,
             [data.yTrainRAud, data.yTrainDAud], # AV
             batch_size=150, epochs=1, validation_split=0.2)
-historyV = modVLSTM.mod.fit(data.xTrainExpVis,
+historyV = modVLSTM.fit(data.xTrainExpVis,
             [data.yTrainRVis, data.yTrainDVis], # AV
             batch_size=150, epochs=1, validation_split=0.2)
 
@@ -162,9 +165,8 @@ plt.plot(historyV.history['val_loss'])
 plt.show()
 
 # Predict
-audRate, audDec = modALSTM.mod.predict(data.xTrainExpAud)
-# Predict
-visRate, visDec = modVLSTM.mod.predict(data.xTrainExpVis)
+audRate, audDec = modALSTM.predict(data.xTrainExpAud)
+visRate, visDec = modVLSTM.predict(data.xTrainExpVis)
 
 # Full training set - A
 modALSTM = modALSTM.evaluate(data.trainSet('Aud'), setName='train')
@@ -172,9 +174,9 @@ modALSTM = modALSTM.evaluate(data.testSet('Aud'), setName='test')
 modVLSTM = modVLSTM.evaluate(data.trainSet('Vis'), setName='train')
 modVLSTM = modVLSTM.evaluate(data.testSet('Vis'), setName='test')
 
+
 modALSTM.printComp()
 modVLSTM.printComp()
-
 
 #%% Print comparison
 
