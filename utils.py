@@ -419,7 +419,7 @@ class multiChannelMod(modPassThrough):
               np.round(rateLossA, 2), '|', 
               np.round(rateLossV, 2), '|', 
               np.round(rateLossAV, 2))
-        print('Overall acc loss A | V | AV:', 
+        print('Overall rate acc A | V | AV:', 
               np.round(rateAccA, 2), '|', 
               np.round(rateAccV, 2), '|', 
               np.round(rateAccAV, 2))

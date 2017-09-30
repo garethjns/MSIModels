@@ -91,6 +91,77 @@ class LSTMModels(utils.modPassThrough):
         return self
     
     
+    def multiChanLate(self, dataLength=512, nPts=128):
+        """
+        2 Channel (A and V)
+        Rate and decision output
+        inputs=[audInput, visInput],
+        outputs=[ARate, VRate, AVRate, AVDec]
+        """
+        
+        # Prepare inputs
+        xLen = dataLength # Channel 1 length
+        # For model creation only need one channel length. Can pad with keras 
+        # for unisensory input, or use noise for "off" channel.
+        
+        # Create Input layers - channel 1
+        inp1 = Input(shape=(xLen,1), dtype='float32', name='c1_input')
+        
+        # Chan 1 conv    
+        LSTM1 = LSTM(nPts, input_shape=(xLen,1), 
+                       return_sequences=True, name='c1_LSTM_l1')(inp1)
+        LSTM1 = Flatten(name='c1_LSTM_l2')(LSTM1) 
+        LSTM1 = Dropout(0.3, name='c1_LSTM_l3')(LSTM1) 
+        
+        # Chan 1 dense layers
+        a1 = Dense(int(xLen/2), activation='relu', 
+                  name='c1_rate_l1')(LSTM1)
+        a1 = Dropout(0.15, name='c1_rate_l2')(a1)
+        rateOutput1 = Dense(1, activation='relu', 
+                              name='c1_rateOutput')(a1)
+        
+        # Chan 2 input
+        inp2 = Input(shape=(xLen,1), dtype='float32', name='c2_input')
+        
+        # Chan 2 conv    
+        LSTM2 = LSTM(nPts, input_shape=(xLen,1), 
+                       return_sequences=True, name='c2_LSTM_l1')(inp2)
+        LSTM2 = Flatten(name='c2_LSTM_l2')(LSTM2) 
+        LSTM2 = Dropout(0.3, name='c2_LSTM_l3')(LSTM2) 
+        
+        # Chan 2 dense layers
+        a2 = Dense(int(xLen/2), activation='relu', 
+                  name='c2_rate_l1')(LSTM2)
+        a2 = Dropout(0.15, name='c2_rate_l2')(a2)
+        rateOutput2 = Dense(1, activation='relu', 
+                              name='c2_rateOutput')(a2)
+        
+        # Integrate
+        AV = concatenate([a1, a2], name='AVRate_l1')
+        rateOutputAV = Dense(1, activation='relu', 
+                              name='rateOutputAV')(AV)
+        
+        # And make decision
+        decOutput = Dense(2, activation='softmax', 
+                              name='decOutput')(rateOutputAV)
+        
+        # Make model with 1 input and 2 outputs
+        model = Model(inputs=[inp1, inp2],
+                      outputs=[rateOutput1, rateOutput2, 
+                               rateOutputAV, decOutput])
+        
+        # Complile with weighted losses
+        rmsprop = optimizers.rmsprop(lr=0.001)
+        model.compile(optimizer=rmsprop, loss='mse',
+                      loss_weights=[0.2, 0.2, 0.5, 0.5], 
+                      metrics=['accuracy'])
+    
+        print(model.summary())
+        
+        self.mod = model
+        
+        return self
+    
     def lateAccum(self, dataLength=512, nPts=128):
         """
         Seperate sensory processing
@@ -165,6 +236,9 @@ class LSTMModels(utils.modPassThrough):
         self.mod = model
         
         return self
+    
+    
+    
 
 
 #%% Others - add later
