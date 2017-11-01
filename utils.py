@@ -6,11 +6,11 @@ Created on Tue Sep 12 13:59:22 2017
 
 
 Helper functions for loading data and evalusating models
+
+
 TODO:
-    - Split in to three classes to inherit in to model classes
-        - Helpers (use AV loader, single not needed)
-        - Single channel helpers
-        - Dual channel helpers
+    - Update single channel mods with plotHistory, save/load functions,
+    figure saving
 """
 
 #%% Imports
@@ -25,6 +25,10 @@ from sklearn.preprocessing import minmax_scale as MMS, OneHotEncoder
 from keras.models import Model
 
 import importlib as il
+
+
+import os
+from keras.models import load_model
 
 
 #%% .mod passthrough
@@ -46,184 +50,57 @@ class modPassThrough():
         return self.mod.name
     
 
-#%% Functions
-
-class dataHelpers():
-    
-    def __init__(self, fn, name=''):
-        self.fn = fn
-        self.name = name
-        self.data = dict()
-
-    
-    def loadMat(self):
-        f = sio.loadmat(self.fn)
-        events = f['events'].astype(np.int16)
-        sounds = f['sounds'].astype(np.float16)
-        rates = MMS(f['rates'].squeeze())
+class modelsGeneral():
+    """
+    Methods shared between multi and single channel models
+    """
+    def save(self):
+        if os.path.isdir(self.path)==False:
+            os.mkdir(self.path)
         
-        return events, sounds, rates
+        fn = self.path+'mod.mod'
+        print('Saving:', fn)
+        self.mod.mod.save(fn)
     
-    
-    def loadMatAV(self, plotOn=True, idx=[]):
-        f = sio.loadmat(self.fn)
-    
-        # Aud
-        eventsA = f['eventsA'].astype(np.int16)
-        soundsA = f['soundsA'].astype(np.float16)
-        ratesA = f['ratesA']
-        # One-hot decision
-        oh = OneHotEncoder()
-        decA = (ratesA>np.mean(ratesA)).astype(np.int16)
-        oh = oh.fit(decA)
-        decA = oh.transform(decA).toarray()
+    def load(self):
         
-        # Vis
-        eventsV = f['eventsV'].astype(np.int16)
-        soundsV = f['soundsV'].astype(np.float16)
-        ratesV = f['ratesV']
-        # One-hit decision using existing scheme
-        decV = (ratesV>np.mean(ratesV)).astype(np.int16)
-        decV = oh.transform(decV).toarray()
-    
-        self.eventsA = eventsA
-        self.soundsA = soundsA
-        self.ratesA = ratesA
-        self.decA = decA
-        self.eventsV = eventsV
-        self.soundsV = soundsV
-        self.ratesV = ratesV
-        self.decV = decV
-        
-        if plotOn:
-            self.plotAV()
+        fn = self.path+'mod.mod'
+        print('Loading:', fn)
+        self.mod.mod = load_model(fn)
         
         return self
     
     
-    def plotAV(self, idx=[], note=''):
-        dataHelpers.plot(self.eventsA, self.soundsA, self.ratesA, self.decA, 
-                         note='Aud')
-        dataHelpers.plot(self.eventsV, self.soundsV, self.ratesV, self.decV, 
-                         note='Vis')
-    
-    
-    @staticmethod    
-    def plot(events, sounds, rates, dec, idx=[], note=''):
-        if idx==[]:
-                idx = np.random.randint(events.shape[0])
-            
-        plt.plot(sounds[idx,:])
-        plt.plot(events[idx,:])
-        plt.show()
-        print(note)
-        print(rates[idx])
-        print(dec[idx])
-
-    
-    def plotDist(self, idx):
+    def prepDir(self):
         
-        print('Mean event distribution in aud set:')
-        plt.plot(np.mean(np.abs(self.soundsA[idx,:]), axis=0))
-        plt.plot(np.mean(self.eventsA[idx,:], axis=0))
-        plt.plot(np.mean(self.yTrainAUd[idx,:], axis=0))
-        plt.show()
-
-        print('Mean event distribution in vis set:')
-        plt.plot(np.mean(np.abs(self.soundsV[idx,:]), axis=0))
-        plt.plot(np.mean(self.eventsV[idx,:], axis=0))
-        plt.plot(np.mean(self.yTrainVis[idx,:], axis=0))
-        plt.show()
-
- 
-    def split(self, n=250):
-        for s in ['Aud', 'Vis']:
-            if s=='Aud':
-                self.idxTrainAud, self.idxTestAud, \
-                self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
-                self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud, \
-                self.xTestAud, self.xTestExpAud, self.yTestAud, \
-                self.yTestExpAud, self.yTestRAud, self.yTestDAud = \
-                    dataHelpers.simpleSplit(self.soundsA, 
-                                            self.eventsA, 
-                                            self.ratesA, 
-                                            self.decA, 
-                                            n=n)
-            elif s=='Vis':
-                self.idxTrainVis, self.idxTestVis, \
-                self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
-                self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis, \
-                self.xTestVis, self.xTestExpVis, self.yTestVis, \
-                self.yTestExpVis, self.yTestRVis, self.yTestDVis = \
-                    dataHelpers.simpleSplit(self.soundsV, 
-                                            self.eventsV, 
-                                            self.ratesV, 
-                                            self.decV, 
-                                            n=n)
-                
+        self.path = 'Models/'+ self.name() + '/'
+        
+        if os.path.isdir(self.path)==False:
+            os.mkdir(self.path)
+        
+        self.hgPath = self.path+'History/'
+        if os.path.isdir(self.hgPath)==False:
+            os.mkdir(self.hgPath)
+        
+        self.egPath = self.path+'Eval/'
+        if os.path.isdir(self.egPath)==False:
+            os.mkdir(self.egPath)
+            
         return self
     
-    
-    @staticmethod
-    def simpleSplit(sounds, events, rates, dec, n=350):
-        """
-        Split in to test and train sets, assumes already shuffled.
-        Returns multiple shapes of data for convenience
-        """
-        
-        idxTrain = np.zeros(sounds.shape[0])
-        idxTrain[0:n] = 1
-        idxTrain = idxTrain.astype(np.bool)
-        idxTest = np.zeros(sounds.shape[0])
-        idxTest[n::] = 1
-        idxTest = idxTest.astype(np.bool)
-        
-        xTrain = sounds[idxTrain,:]
-        yTrain = events[idxTrain,:]
-        yTrainR = rates[idxTrain]
-        yTrainD = dec[idxTrain,:]
-        
-        xTest = sounds[idxTest,:]
-        yTest = events[idxTest,:]
-        yTestR = rates[idxTest]
-        yTestD = dec[idxTest,:]
-        
-        # Needed when extracting sequence from LSTM layers
-        xTrainExp = np.expand_dims(xTrain, axis=2)
-        xTestExp = np.expand_dims(xTest, axis=2)
-        yTrainExp = np.expand_dims(yTrain, axis=2)
-        yTestExp = np.expand_dims(yTest, axis=2)
-    
-        return idxTrain, idxTest, \
-            xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, xTest, \
-            xTestExp, yTest, yTestExp, yTestR, yTestD
-            
-            
-    def trainSet(self, w='Aud'):
-        if w=='Aud':
-            return self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
-                    self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud
-        elif w=='Vis':
-            return self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
-                    self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis
-    
-    
-    def testSet(self, w='Aud'):
-        if w=='Aud':
-            return self.xTestAud, self.xTestExpAud, self.yTestAud, \
-                    self.yTestExpAud, self.yTestRAud, self.yTestDAud
-        elif w=='Vis':
-            return self.xTestVis, self.xTestExpVis, self.yTestVis, \
-                    self.yTestExpVis, self.yTestRVis, self.yTestDVis
-        
-            
+
 #%% Single channel model class
 
-class singleChannelMod(modPassThrough):
+class singleChannelMod(modPassThrough, modelsGeneral):
+    
     def __init__(self, mod, dataLength=512, **kwargs):
+        
         self.mod = mod(dataLength, **kwargs)
         self.results = dict()
+        self.path = 'Models/'+ self.name() + '/'
         
+        if os.path.isdir(self.path)==False:
+            os.mkdir(self.path)
    
     def evaluate(self, dataSet, setName='train', layerName='', trans=True):
         
@@ -255,8 +132,12 @@ class singleChannelMod(modPassThrough):
         print('Random single example:')
         idx = np.random.randint(audRate.shape[0])
         print('Stim, events:')    
-        plt.plot(xTrainAud[idx,:])
-        plt.plot(yTrainAud[idx,:])
+        plt.plot(xTrainAud[idx,:], label = '"c1" raw')
+        plt.plot(yTrainAud[idx,:], label = '"c1" events')
+        plt.legend()
+        plt.xlabel('Time')
+        plt.ylabel('Mag.')
+        plt.savefig(self.egPath+'Random single example_' + setName + '.png')
         plt.show()
         
         # Also get output from conv -> flatten for this example
@@ -316,12 +197,64 @@ class singleChannelMod(modPassThrough):
 
 #%% Multi-channel model class
  
-class multiChannelMod(modPassThrough):
+class multiChannelMod(modPassThrough, modelsGeneral):
     def __init__(self, mod, dataLength=512, **kwargs):
         
         self.mod = mod(dataLength, **kwargs)
         self.results = dict()
+        self.history=[]
         
+        self = self.prepDir()
+                
+        
+    def plotHistory(self, which=['', 'val']):
+        
+        if self.history != []:
+            for w in which:
+                if w == '':
+                    print('Training history')
+                    fApp = 'train'
+                else:
+                    print('Validation history')
+                    fApp = w
+                    w = w+'_'
+                    
+                
+                plt.semilogy(self.history.history[w+'loss'],
+                         label=w+'loss')
+                plt.semilogy(self.history.history[w+'c1_rateOutput_loss'], 
+                         label=w+'c1_rateOutput_loss')
+                plt.semilogy(self.history.history[w+'c2_rateOutput_loss'], 
+                         label=w+'c2_rateOutput_loss')
+                plt.semilogy(self.history.history[w+'rateOutputAV_loss'], 
+                         label=w+'rateOutputAV_loss')
+                plt.legend()
+                plt.xlabel('Epoch')
+                plt.ylabel('Rate losses')
+                plt.savefig(self.hgPath+'Rate losses_' + fApp + '.png')
+                plt.show()
+                
+                plt.plot(self.history.history[w+'decOutput_loss'],
+                         label=w+'decOutput_loss')
+                plt.legend()
+                plt.xlabel('Epoch')
+                plt.ylabel('Decision loss')
+                plt.savefig(self.hgPath+'Dec losses_' + fApp + '.png')
+                plt.show()
+                
+                plt.plot(self.history.history[w+'c1_rateOutput_acc'],
+                         label=w+'c1_rateOutput_acc')
+                plt.plot(self.history.history[w+'c2_rateOutput_acc'],
+                         label=w+'c2_rateOutput_acc')
+                plt.plot(self.history.history[w+'rateOutputAV_acc'],
+                         label=w+'rateOutputAV_acc')
+                plt.plot(self.history.history[w+'decOutput_acc'],
+                         label=w+'decOutput_acc')
+                plt.legend()
+                plt.xlabel('Epoch')
+                plt.ylabel('Accuracy')
+                plt.savefig(self.hgPath+'Accuracy_' + fApp + '.png')
+                plt.show()                
     
     def evaluate(self, dataSet, setName='train', layerName='', trans=True):
         
@@ -368,11 +301,16 @@ class multiChannelMod(modPassThrough):
         print('Random example:')
         idx = np.random.randint(audRate.shape[0])
         print('Stim, events:')    
-        plt.plot(xTrainAud[idx,:])
-        plt.plot(xTrainVis[idx,:])
-        plt.plot(yTrainAud[idx,:])
-        plt.plot(yTrainVis[idx,:])
+        plt.plot(xTrainAud[idx,:], label = 'Aud raw')
+        plt.plot(xTrainVis[idx,:], label = 'Vis raw')
+        plt.plot(yTrainAud[idx,:], label = 'Aud events')
+        plt.plot(yTrainVis[idx,:], label = 'Vis events')
+        plt.legend
+        plt.xlabel('Time')
+        plt.ylabel('Mag.')
+        plt.savefig(self.egPath+'Random single example_' + setName + '.png')
         plt.show()
+    
         
         # Also get output from conv -> flatten for this example
         if layerName != '':
@@ -456,3 +394,183 @@ class multiChannelMod(modPassThrough):
               'Rate Acc: '+str(np.round(self.results[setName+'RateAcc'],2))+'%')
         print('      Dec Acc: '+str(np.round(self.results[setName+'DecAcc'],2))+'%')
         
+#%% Data class
+
+class dataHelpers():
+    
+    def __init__(self, fn, name=''):
+        self.fn = fn
+        self.name = name
+        self.data = dict()
+    
+    def loadMat(self):
+        f = sio.loadmat(self.fn)
+        events = f['events'].astype(np.int16)
+        sounds = f['sounds'].astype(np.float16)
+        rates = MMS(f['rates'].squeeze())
+        
+        return events, sounds, rates
+    
+    
+    def loadMatAV(self, plotOn=True, idx=[]):
+        f = sio.loadmat(self.fn)
+    
+        # Aud
+        eventsA = f['eventsA'].astype(np.int16)
+        soundsA = f['soundsA'].astype(np.float16)
+        ratesA = f['ratesA']
+        # One-hot decision
+        oh = OneHotEncoder()
+        decA = (ratesA>np.mean(ratesA)).astype(np.int16)
+        oh = oh.fit(decA)
+        decA = oh.transform(decA).toarray()
+        
+        # Vis
+        eventsV = f['eventsV'].astype(np.int16)
+        soundsV = f['soundsV'].astype(np.float16)
+        ratesV = f['ratesV']
+        # One-hit decision using existing scheme
+        decV = (ratesV>np.mean(ratesV)).astype(np.int16)
+        decV = oh.transform(decV).toarray()
+    
+        self.eventsA = eventsA
+        self.soundsA = soundsA
+        self.ratesA = ratesA
+        self.decA = decA
+        self.eventsV = eventsV
+        self.soundsV = soundsV
+        self.ratesV = ratesV
+        self.decV = decV
+        
+        if plotOn:
+            self.plotAV()
+        
+        return self
+    
+    
+    def plotAV(self, idx=[], note=''):
+        dataHelpers.plot(self.eventsA, self.soundsA, self.ratesA, self.decA, 
+                         note='Aud')
+        dataHelpers.plot(self.eventsV, self.soundsV, self.ratesV, self.decV, 
+                         note='Vis')
+    
+    
+    @staticmethod    
+    def plot(events, sounds, rates, dec, idx=[], note=''):
+        if idx==[]:
+                idx = np.random.randint(events.shape[0])
+            
+        plt.plot(sounds[idx,:])
+        plt.plot(events[idx,:])
+        plt.show()
+        print(note)
+        print(rates[idx])
+        print(dec[idx])
+
+    
+    def plotDists(self):
+        
+        print('Mean event distribution in aud train set:')
+        idx = self.idxTrainAud
+        plt.plot(np.mean(np.abs(self.soundsA[idx,:]), axis=0))
+        plt.plot(np.mean(self.eventsA[idx,:], axis=0))
+        plt.show()
+        
+        print('Mean event distribution in aud test set:')
+        idx = self.idxTestAud
+        plt.plot(np.mean(np.abs(self.soundsA[idx,:]), axis=0))
+        plt.plot(np.mean(self.eventsA[idx,:], axis=0))
+        plt.show()
+        
+        print('Mean event distribution in vis train set:')
+        idx = self.idxTrainVis
+        plt.plot(np.mean(np.abs(self.soundsV[idx,:]), axis=0))
+        plt.plot(np.mean(self.eventsV[idx,:], axis=0))
+        plt.show()
+        
+        print('Mean event distribution in vis test set:')
+        idx = self.idxTestVis
+        plt.plot(np.mean(np.abs(self.soundsV[idx,:]), axis=0))
+        plt.plot(np.mean(self.eventsV[idx,:], axis=0))
+        plt.show()
+        
+ 
+    def split(self, n=250):
+        for s in ['Aud', 'Vis']:
+            if s=='Aud':
+                self.idxTrainAud, self.idxTestAud, \
+                self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
+                self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud, \
+                self.xTestAud, self.xTestExpAud, self.yTestAud, \
+                self.yTestExpAud, self.yTestRAud, self.yTestDAud = \
+                    dataHelpers.simpleSplit(self.soundsA, 
+                                            self.eventsA, 
+                                            self.ratesA, 
+                                            self.decA, 
+                                            n=n)
+            elif s=='Vis':
+                self.idxTrainVis, self.idxTestVis, \
+                self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
+                self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis, \
+                self.xTestVis, self.xTestExpVis, self.yTestVis, \
+                self.yTestExpVis, self.yTestRVis, self.yTestDVis = \
+                    dataHelpers.simpleSplit(self.soundsV, 
+                                            self.eventsV, 
+                                            self.ratesV, 
+                                            self.decV, 
+                                            n=n)
+                
+        return self
+    
+    
+    @staticmethod
+    def simpleSplit(sounds, events, rates, dec, n=350):
+        """
+        Split in to test and train sets, assumes already shuffled.
+        Returns multiple shapes of data for convenience
+        """
+        
+        idxTrain = np.zeros(sounds.shape[0])
+        idxTrain[0:n] = 1
+        idxTrain = idxTrain.astype(np.bool)
+        idxTest = np.zeros(sounds.shape[0])
+        idxTest[n::] = 1
+        idxTest = idxTest.astype(np.bool)
+        
+        xTrain = sounds[idxTrain,:]
+        yTrain = events[idxTrain,:]
+        yTrainR = rates[idxTrain]
+        yTrainD = dec[idxTrain,:]
+        
+        xTest = sounds[idxTest,:]
+        yTest = events[idxTest,:]
+        yTestR = rates[idxTest]
+        yTestD = dec[idxTest,:]
+        
+        # Needed when extracting sequence from LSTM layers
+        xTrainExp = np.expand_dims(xTrain, axis=2)
+        xTestExp = np.expand_dims(xTest, axis=2)
+        yTrainExp = np.expand_dims(yTrain, axis=2)
+        yTestExp = np.expand_dims(yTest, axis=2)
+    
+        return idxTrain, idxTest, \
+            xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, xTest, \
+            xTestExp, yTest, yTestExp, yTestR, yTestD
+            
+            
+    def trainSet(self, w='Aud'):
+        if w=='Aud':
+            return self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
+                    self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud
+        elif w=='Vis':
+            return self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
+                    self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis
+    
+    
+    def testSet(self, w='Aud'):
+        if w=='Aud':
+            return self.xTestAud, self.xTestExpAud, self.yTestAud, \
+                    self.yTestExpAud, self.yTestRAud, self.yTestDAud
+        elif w=='Vis':
+            return self.xTestVis, self.xTestExpVis, self.yTestVis, \
+                    self.yTestExpVis, self.yTestRVis, self.yTestDVis

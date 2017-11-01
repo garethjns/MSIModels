@@ -20,6 +20,8 @@ $RECYCLE.BIN/
 # Folders
 Backups
 Data
+Models
+/.ipynb_*
 
 # MATLAB
 *.asv

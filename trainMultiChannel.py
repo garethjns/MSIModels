@@ -38,74 +38,90 @@ data = data.loadMatAV()
 
 data = data.split(n=12000)
 
-data.plotDist(idx = data.idxTrainVis)
-data.plotDist(idx = data.idxTestVis)
+data.plotDists()
+
+
+#%% Model set up
+
+# Save path
+mPath = 'Models/'
+# Number of epochs
+nEpConv = 1500
+nEpLSTM = 500
 
 
 #%% Train late integration (Conv, AV data)
 
-K.clear_session()
+# K.clear_session()
 
-modAVConv1 = AVMod(mod=ConvModels(name='AVConv').multiChanLate,  
+name = 'AVConv_Late'
+modAVConv1 = AVMod(mod=ConvModels(name=name).multiChanLate,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nFil=256, ks=128, strides=32)
 
-historyAV = modAVConv1.fit([data.xTrainExpAud, data.xTrainExpVis],
+modAVConv1.history = modAVConv1.fit([data.xTrainExpAud, data.xTrainExpVis],
             [data.yTrainRAud, data.yTrainRAud, 
              data.yTrainRAud, data.yTrainDAud],
-            batch_size=500, epochs=500, validation_split=0.2)
+            batch_size=500, epochs=nEpConv, validation_split=0.2, verbose=1)
 
-plt.plot(historyAV.history['loss'])
-plt.plot(historyAV.history['val_loss'])
-plt.show()
-
+modAVConv1.plotHistory()
 
 # Evaluate
 modAVConv1 = modAVConv1.evaluate(data, setName='train')
 modAVConv1 = modAVConv1.evaluate(data, setName='test')
+
+# Save to disk
+modAVConv1.save()
+
+
+#%% Test load
+# History not saved
+
+modAVConv1_tmp = AVMod(mod=ConvModels(name=name).multiChanLate)
+modAVConv1_tmp = modAVConv1_tmp.load()
 
 
 #%% Train early integration (Conv, AV data)
 
 K.clear_session()
 
-modAVConv2 = AVMod(mod=ConvModels(name='AVConv').multiChanEarly,  
+modAVConv2 = AVMod(mod=ConvModels(name='AVConv_Early').multiChanEarly,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nFil=256, ks=128, strides=32)
 
 historyAV = modAVConv2.fit([data.xTrainExpAud, data.xTrainExpVis],
             [data.yTrainRAud, data.yTrainRAud, 
              data.yTrainRAud, data.yTrainDAud],
-            batch_size=500, epochs=1000, validation_split=0.2)
+            batch_size=500, epochs=nEpConv, validation_split=0.2)
 
-plt.plot(historyAV.history['loss'])
-plt.plot(historyAV.history['val_loss'])
-plt.show()
-
+modAVConv1.plotHistory()
 
 # Evaluate
 modAVConv2 = modAVConv2.evaluate(data, setName='train')
 modAVConv2 = modAVConv2.evaluate(data, setName='test')
+
+# Save to disk
+modAVConv2.save()
 
 
 #%% Train late integration (LSTM, AV data)
 
 K.clear_session()
 
-modAVLTM = AVMod(mod=LSTMModels(name='AVLSTM').multiChan,  
+modAVLSTM = AVMod(mod=LSTMModels(name='AVLSTM_Late').multiChanLate,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nPts=128)
 
-historyAV = modAVLTM.fit([data.xTrainExpAud, data.xTrainExpVis],
+historyAV = modAVLSTM.fit([data.xTrainExpAud, data.xTrainExpVis],
             [data.yTrainRAud, data.yTrainRAud, 
              data.yTrainRAud, data.yTrainDAud],
-            batch_size=200, epochs=5, validation_split=0.2)
+            batch_size=200, epochs=nEpLSTM, validation_split=0.2)
 
-plt.plot(historyAV.history['loss'])
-plt.plot(historyAV.history['val_loss'])
-plt.show()
-
+modAVConv1.plotHistory()
 
 # Evaluate
-modAVConv = modAVConv.evaluate(data, setName='train')
-modAVConv = modAVConv.evaluate(data, setName='test')
+modAVLSTM = modAVLSTM.evaluate(data, setName='train')
+modAVLSTM = modAVLSTM.evaluate(data, setName='test')
+
+# Save to disk
+modAVLSTM.save()
