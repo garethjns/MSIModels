@@ -33,7 +33,7 @@ dPath = 'Data/'
 dSet = 'stimData_AV_s14_20000x400.mat'
 
 # Load the dataset
-data = dh(dPath+dSet, name='s12')
+data = dh(dPath+dSet, name='s14')
 data = data.loadMatAV()
 
 data = data.split(n=12000)
@@ -47,7 +47,7 @@ data.plotDists()
 mPath = 'Models/'
 # Number of epochs
 nEpConv = 1500
-nEpLSTM = 500
+nEpLSTM = 75
 
 
 #%% Train late integration (Conv, AV data)
@@ -77,24 +77,25 @@ modAVConv1.save()
 #%% Test load
 # History not saved
 
-modAVConv1_tmp = AVMod(mod=ConvModels(name=name).multiChanLate)
-modAVConv1_tmp = modAVConv1_tmp.load()
+# modAVConv1_tmp = AVMod(mod=ConvModels(name=name).multiChanLate)
+# modAVConv1_tmp = modAVConv1_tmp.load()
 
 
 #%% Train early integration (Conv, AV data)
 
 K.clear_session()
 
-modAVConv2 = AVMod(mod=ConvModels(name='AVConv_Early').multiChanEarly,  
+name = 'AVConv_Early'
+modAVConv2 = AVMod(mod=ConvModels(name=name).multiChanEarly,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nFil=256, ks=128, strides=32)
 
-historyAV = modAVConv2.fit([data.xTrainExpAud, data.xTrainExpVis],
+modAVConv2.history = modAVConv2.fit([data.xTrainExpAud, data.xTrainExpVis],
             [data.yTrainRAud, data.yTrainRAud, 
              data.yTrainRAud, data.yTrainDAud],
             batch_size=500, epochs=nEpConv, validation_split=0.2)
 
-modAVConv1.plotHistory()
+modAVConv2.plotHistory()
 
 # Evaluate
 modAVConv2 = modAVConv2.evaluate(data, setName='train')
@@ -112,12 +113,12 @@ modAVLSTM = AVMod(mod=LSTMModels(name='AVLSTM_Late').multiChanLate,
                   dataLength = data.xTrainExpAud.shape[1], 
                   nPts=128)
 
-historyAV = modAVLSTM.fit([data.xTrainExpAud, data.xTrainExpVis],
+modAVLSTM.history = modAVLSTM.fit([data.xTrainExpAud, data.xTrainExpVis],
             [data.yTrainRAud, data.yTrainRAud, 
              data.yTrainRAud, data.yTrainDAud],
             batch_size=200, epochs=nEpLSTM, validation_split=0.2)
 
-modAVConv1.plotHistory()
+modAVLSTM.plotHistory()
 
 # Evaluate
 modAVLSTM = modAVLSTM.evaluate(data, setName='train')

@@ -219,7 +219,6 @@ class multiChannelMod(modPassThrough, modelsGeneral):
                     fApp = w
                     w = w+'_'
                     
-                
                 plt.semilogy(self.history.history[w+'loss'],
                          label=w+'loss')
                 plt.semilogy(self.history.history[w+'c1_rateOutput_loss'], 
@@ -402,6 +401,9 @@ class dataHelpers():
         self.fn = fn
         self.name = name
         self.data = dict()
+        self.trainIdx = []
+        self.testIdx = []
+    
     
     def loadMat(self):
         f = sio.loadmat(self.fn)
@@ -432,7 +434,8 @@ class dataHelpers():
         # One-hit decision using existing scheme
         decV = (ratesV>np.mean(ratesV)).astype(np.int16)
         decV = oh.transform(decV).toarray()
-    
+        
+        self.type = f['type'].astype(np.float16)
         self.eventsA = eventsA
         self.soundsA = soundsA
         self.ratesA = ratesA
@@ -441,6 +444,7 @@ class dataHelpers():
         self.soundsV = soundsV
         self.ratesV = ratesV
         self.decV = decV
+        self.n = self.ratesA.shape[0]
         
         if plotOn:
             self.plotAV()
@@ -471,93 +475,105 @@ class dataHelpers():
     def plotDists(self):
         
         print('Mean event distribution in aud train set:')
-        idx = self.idxTrainAud
-        plt.plot(np.mean(np.abs(self.soundsA[idx,:]), axis=0))
-        plt.plot(np.mean(self.eventsA[idx,:], axis=0))
+        plt.plot(np.mean(np.abs(self.xTrainAud), axis=0))
+        plt.plot(np.mean(self.yTrainAud, axis=0))
         plt.show()
         
         print('Mean event distribution in aud test set:')
-        idx = self.idxTestAud
-        plt.plot(np.mean(np.abs(self.soundsA[idx,:]), axis=0))
-        plt.plot(np.mean(self.eventsA[idx,:], axis=0))
+        plt.plot(np.mean(np.abs(self.xTestAud), axis=0))
+        plt.plot(np.mean(self.yTestAud, axis=0))
         plt.show()
         
         print('Mean event distribution in vis train set:')
-        idx = self.idxTrainVis
-        plt.plot(np.mean(np.abs(self.soundsV[idx,:]), axis=0))
-        plt.plot(np.mean(self.eventsV[idx,:], axis=0))
+        plt.plot(np.mean(np.abs(self.xTrainVis), axis=0))
+        plt.plot(np.mean(self.yTrainVis, axis=0))
         plt.show()
         
         print('Mean event distribution in vis test set:')
-        idx = self.idxTestVis
-        plt.plot(np.mean(np.abs(self.soundsV[idx,:]), axis=0))
-        plt.plot(np.mean(self.eventsV[idx,:], axis=0))
+        plt.plot(np.mean(np.abs(self.xTestVis), axis=0))
+        plt.plot(np.mean(self.yTestVis, axis=0))
         plt.show()
         
- 
-    def split(self, n=250):
-        for s in ['Aud', 'Vis']:
-            if s=='Aud':
-                self.idxTrainAud, self.idxTestAud, \
-                self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
-                self.yTrainExpAud, self.yTrainRAud, self.yTrainDAud, \
-                self.xTestAud, self.xTestExpAud, self.yTestAud, \
-                self.yTestExpAud, self.yTestRAud, self.yTestDAud = \
-                    dataHelpers.simpleSplit(self.soundsA, 
-                                            self.eventsA, 
-                                            self.ratesA, 
-                                            self.decA, 
-                                            n=n)
-            elif s=='Vis':
-                self.idxTrainVis, self.idxTestVis, \
-                self.xTrainVis, self.xTrainExpVis, self.yTrainVis, \
-                self.yTrainExpVis, self.yTrainRVis, self.yTrainDVis, \
-                self.xTestVis, self.xTestExpVis, self.yTestVis, \
-                self.yTestExpVis, self.yTestRVis, self.yTestDVis = \
-                    dataHelpers.simpleSplit(self.soundsV, 
-                                            self.eventsV, 
-                                            self.ratesV, 
-                                            self.decV, 
-                                            n=n)
-                
+        
+    def split(self, nTrain=250):
+        randIdx = np.random.choice(range(0, self.n), self.n, replace=False)
+        self.trainIdx = randIdx[0:nTrain]
+        self.testIdx = randIdx[nTrain::]
+    
         return self
     
     
-    @staticmethod
-    def simpleSplit(sounds, events, rates, dec, n=350):
+    def __getattribute__(self, name):
         """
-        Split in to test and train sets, assumes already shuffled.
-        Returns multiple shapes of data for convenience
+        Return data using self.trainIdx and self.testIdx splits
         """
+        # Type
+        if (name=='typeTrain') | (name=='trainType'):
+            return self.type[self.trainIdx]
+        if (name=='typeTest') | (name=='testType'):
+            return self.type[self.testIdx]
+        # Aud
+        elif (name=='xTrainAud') | (name=='xTrainA') | (name=='xTrainC1'):
+            return self.soundsA[self.idxTrain,:]
+        elif (name=='xTrainExpAud') | (name=='xTrainExpA') | (name=='xTrainExpC1'):
+            return np.expand_dims(self.soundsA[self.idxTrain,:], axis=2)
+        elif (name=='yTrainAud') | (name=='yTrainA') | (name=='yTrainC1'):
+            return self.eventsA[self.idxTrain,:]
+        elif (name=='yTrainExpAud') | (name=='yTrainExpA') | (name=='yTrainExpC1'):
+            return np.expand_dims(self.eventsA[self.idxTrain,:], axis=2)
+        elif (name=='yTrainRAud') | (name=='yTrainRA') | (name=='yTrainRC1'):
+            return self.ratesA[self.idxTrain]
+        elif (name=='yTrainDAud') | (name=='yTrainDA') | (name=='yTrainDC1'):
+            return self.decA[self.idxTrain]
+        elif (name=='xTestAud') | (name=='xTestA') | (name=='xTestC1'):
+            return self.soundsA[self.idxTest,:]
+        elif (name=='xTestExpAud') | (name=='xTestExpA') | (name=='xTestExpC1'):
+            return np.expand_dims(self.soundsA[self.idxTest,:], axis=2)
+        elif (name=='yTestAud') | (name=='yTestA') | (name=='yTestC1'):
+            return self.eventsA[self.idxTest,:]
+        elif (name=='yTestExpAud') | (name=='yTestExpA') | (name=='yTestExpC1'):
+            return np.expand_dims(self.eventsA[self.idxTest,:], axis=2)
+        elif (name=='yTestRAud') | (name=='yTestRA') | (name=='yTestRC1'):
+            return self.ratesA[self.idxTest]
+        elif (name=='yTestDAud') | (name=='yTestDA') | (name=='yTestDC1'):
+            return self.decA[self.idxTest]
+        # Vis
+        if (name=='xTrainVis') | (name=='xTrainV') | (name=='xTrainC2'):
+            return self.soundsV[self.idxTrain,:]
+        elif (name=='xTrainExpVis') | (name=='xTrainExpV') | (name=='xTrainExpC2'):
+            return np.expand_dims(self.soundsV[self.idxTrain,:], axis=2)
+        elif (name=='yTrainVis') | (name=='yTrainV') | (name=='yTrainC2'):
+            return self.eventsV[self.idxTrain,:]
+        elif (name=='yTrainExpVis') | (name=='yTrainExpV') | (name=='yTrainExpC2'):
+            return np.expand_dims(self.eventsV[self.idxTrain,:], axis=2)
+        elif (name=='yTrainRVis') | (name=='yTrainRV') | (name=='yTrainRC2'):
+            return self.ratesV[self.idxTrain]
+        elif (name=='yTrainDVis') | (name=='yTrainDV') | (name=='yTrainDC2'):
+            return self.decV[self.idxTrain]
+        elif (name=='xTestVis') | (name=='xTestV') | (name=='xTestC2'):
+            return self.soundsV[self.idxTest,:]
+        elif (name=='xTestExpVis') | (name=='xTestExpV') | (name=='xTestExpC2'):
+            return np.expand_dims(self.soundsV[self.idxTest,:], axis=2)
+        elif (name=='yTestVis') | (name=='yTestV') | (name=='yTestC2'):
+            return self.eventsV[self.idxTest,:]
+        elif (name=='yTestExpVis') | (name=='yTestExpV') | (name=='yTestExpC2'):
+            return np.expand_dims(self.eventsV[self.idxTest,:], axis=2)
+        elif (name=='yTestRVis') | (name=='yTestRV') | (name=='yTestRC2'):
+            return self.ratesV[self.idxTest]
+        elif (name=='yTestDVis') | (name=='yTestDV') | (name=='yTestDC2'):
+            return self.decV[self.idxTest]
+        # Lazy
+        elif (name=='idxTrain') | (name=='idxTrainA') | (name=='idxTrainV') \
+            | (name=='idxTrainC1') | (name=='idxTrainC2'):
+            return self.trainIdx
+        elif (name=='idxTest') | (name=='idxTestA') | (name=='idxTestV') \
+            | (name=='idxTestC1') | (name=='idxTestC2'):
+            return self.testIdx
+        # Others
+        else:
+            return object.__getattribute__(self, name) 
         
-        idxTrain = np.zeros(sounds.shape[0])
-        idxTrain[0:n] = 1
-        idxTrain = idxTrain.astype(np.bool)
-        idxTest = np.zeros(sounds.shape[0])
-        idxTest[n::] = 1
-        idxTest = idxTest.astype(np.bool)
-        
-        xTrain = sounds[idxTrain,:]
-        yTrain = events[idxTrain,:]
-        yTrainR = rates[idxTrain]
-        yTrainD = dec[idxTrain,:]
-        
-        xTest = sounds[idxTest,:]
-        yTest = events[idxTest,:]
-        yTestR = rates[idxTest]
-        yTestD = dec[idxTest,:]
-        
-        # Needed when extracting sequence from LSTM layers
-        xTrainExp = np.expand_dims(xTrain, axis=2)
-        xTestExp = np.expand_dims(xTest, axis=2)
-        yTrainExp = np.expand_dims(yTrain, axis=2)
-        yTestExp = np.expand_dims(yTest, axis=2)
-    
-        return idxTrain, idxTest, \
-            xTrain, xTrainExp, yTrain, yTrainExp, yTrainR, yTrainD, xTest, \
-            xTestExp, yTest, yTestExp, yTestR, yTestD
-            
-            
+
     def trainSet(self, w='Aud'):
         if w=='Aud':
             return self.xTrainAud, self.xTrainExpAud, self.yTrainAud, \
@@ -574,3 +590,4 @@ class dataHelpers():
         elif w=='Vis':
             return self.xTestVis, self.xTestExpVis, self.yTestVis, \
                     self.yTestExpVis, self.yTestRVis, self.yTestDVis
+                    
