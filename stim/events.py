@@ -1,5 +1,5 @@
 from functools import partial, reduce
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 import numpy as np
 
@@ -100,18 +100,24 @@ class CompoundEvent(Event):
         return np.ones(shape=(self.duration_pts,))
 
     @staticmethod
-    def _combiner(ev_1: Event, ev_2: Event,
-                  weight: float = 0.5) -> np.ndarray:
-        start = int(min(min(ev_1.x_pts), min(ev_2.x_pts)))
-        end = int(max(max(ev_1.x_pts), max(ev_2.x_pts)))
+    def _combiner(events: List[Event],
+                  weights: List[float] = None) -> Tuple[np.ndarray, np.ndarray]:
+
+        if weights is None:
+            weights = [1 / len(events) for _ in events]
+
+        start = reduce(lambda ev_a, ev_b: min(ev_a, ev_b), [e.x_pts.min() for e in events])
+        end = reduce(lambda ev_a, ev_b: max(ev_a, ev_b), [e.x_pts.max() for e in events])
         buffered_len = end - start + 1
 
         x = np.linspace(start, end, buffered_len,
                         dtype=int)
-        y = np.zeros(shape=(buffered_len,))
 
-        y[ev_1.x_pts] = y[ev_1.x_pts] + ev_1.y * weight
-        y[ev_2.x_pts] = y[ev_2.x_pts] + ev_2.y * (1 - weight)
+        y = np.zeros(shape=(len(events), buffered_len))
+        for e_i, (e, w) in enumerate(zip(events, weights)):
+            y[e_i, e.x_pts] = e.y * w
+
+        y = y.sum(axis=0)
 
         return x, y
 

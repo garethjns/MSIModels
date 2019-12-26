@@ -80,7 +80,7 @@ class DigitalSignal(ABC):
 
     def _envelope_f(self) -> np.ndarray:
         """Envelope function for whole signal - default is 180deg of a cosine."""
-        return np.cos(np.linspace(0.5 * np.pi, 1.5 * np.pi, self.duration_pts))
+        return (np.cos(np.linspace(1 * np.pi, 3 * np.pi, self.duration_pts)) + 1) * 0.5
 
     def _generate(self) -> np.ndarray:
         """
@@ -101,7 +101,8 @@ class DigitalSignal(ABC):
     @property
     def x_pts(self) -> np.ndarray:
         """Time axis, in samples."""
-        return np.linspace(self.start_pts, self.start_pts + self.duration_pts, self.duration_pts)
+        return np.linspace(self.start_pts, self.start_pts + self.duration_pts - 1, self.duration_pts,
+                           dtype=int)
 
     @property
     def y(self) -> np.ndarray:
