@@ -140,6 +140,30 @@ class TestSineEvent(unittest.TestCase):
 
 
 class TestCompoundEvent(unittest.TestCase):
+    def test_combiner_with_matching_events(self):
+        sine_event = SineEvent(fs=10000)
+        noise_event = NoiseEvent(mag=0.3,
+                                 fs=10000)
+
+        x, y = CompoundEvent._combiner(sine_event, noise_event)
+
+        self.assertEqual(len(x), 10000)
+        self.assertEqual(len(y), 10000)
+
+    def test_combiner_with_non_matching_events(self):
+        sine_event = SineEvent(fs=1000,
+                               duration=500,
+                               start=500)
+        noise_event = NoiseEvent(mag=0.3,
+                                 duration=1000,
+                                 fs=1000)
+
+        x, y = CompoundEvent._combiner(sine_event, noise_event)
+
+        self.assertEqual(len(x), 1000)
+        self.assertEqual(len(y), 10000)
+
+
     def test_sine_noise_multiply(self):
         sine_event = SineEvent(fs=10000)
         noise_event = NoiseEvent(mag=0.3,

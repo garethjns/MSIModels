@@ -99,6 +99,22 @@ class CompoundEvent(Event):
         """
         return np.ones(shape=(self.duration_pts,))
 
+    @staticmethod
+    def _combiner(ev_1: Event, ev_2: Event,
+                  weight: float = 0.5) -> np.ndarray:
+        start = int(min(min(ev_1.x_pts), min(ev_2.x_pts)))
+        end = int(max(max(ev_1.x_pts), max(ev_2.x_pts)))
+        buffered_len = end - start + 1
+
+        x = np.linspace(start, end, buffered_len,
+                        dtype=int)
+        y = np.zeros(shape=(buffered_len,))
+
+        y[ev_1.x_pts] = y[ev_1.x_pts] + ev_1.y * weight
+        y[ev_2.x_pts] = y[ev_2.x_pts] + ev_2.y * (1 - weight)
+
+        return x, y
+
     def _make_generate_f(self) -> Callable:
         """
         Make the generator function.
