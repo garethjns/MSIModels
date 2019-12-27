@@ -1,7 +1,6 @@
 import numpy as np
 
 from signal.digital.digital_siginal import DigitalSignal
-from signal.sequences.sequence import CompoundEvent
 
 
 class Event(DigitalSignal):
