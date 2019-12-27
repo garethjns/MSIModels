@@ -6,10 +6,9 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 from matplotlib import pyplot as plt
 
-from signal.events.event import Event
+from signal.events.event import Event, CompoundEvent
 from signal.events.noise import NoiseEvent
 from signal.events.tonal import SineEvent
-from signal.sequences.sequence import CompoundEvent
 
 
 class TestEvent(unittest.TestCase):
@@ -23,12 +22,12 @@ class TestEvent(unittest.TestCase):
     def test_length_as_expected(self):
         self.assertEqual(len(self.ev_1.y), 200)
 
-    @patch.multiple(Event, _envelope_f=partial(np.ones, shape=(200,)))
     def test_y_no_envelope(self):
         ev = Event(fs=10000,
                    duration=20,
                    mag=1,
                    clip=np.inf)
+        ev.envelope = lambda x: x
 
         self.assertListEqual(list(ev.y), list(np.ones(shape=(200,))))
 
@@ -66,8 +65,13 @@ class TestNoiseEvent(unittest.TestCase):
                                 clip=np.inf,
                                 dist='uniform')
 
-        self.assertAlmostEqual(float(np.mean(ev_norm.y)), 0.0, 0)
-        self.assertAlmostEqual(float(np.mean(ev_norm.y)), float(np.mean(ev_uniform.y)), 0)
+        ev_norm.plot()
+        ev_uniform.plot()
+        plt.show()
+
+        self.assertAlmostEqual(float(np.mean(ev_norm.y)), 0.0, -1)
+        self.assertLess(float(np.mean(ev_norm.y)), float(np.mean(ev_uniform.y)), 0)
+        self.assertLess(float(np.std(ev_uniform.y)), float(np.std(ev_norm.y)))
 
     def test_consistent_y_each_regen(self):
         y_1 = copy.deepcopy(self.ev_1.y)
