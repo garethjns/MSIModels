@@ -1,17 +1,7 @@
-from abc import ABC, abstractmethod
-
 import numpy as np
 
-from stim.base_signal import ms_to_pts
-
-
-class Envelope(ABC):
-    def __call__(self, y: np.ndarray) -> np.ndarray:
-        return self.f(y)
-
-    @abstractmethod
-    def f(self, y: np.ndarray) -> np.ndarray:
-        pass
+from signal.digital.digital_siginal import ms_to_pts
+from signal.envelopes.envelope import Envelope
 
 
 class ConstantEnvelope(Envelope):
@@ -40,7 +30,6 @@ class CosRiseEnvelope(Envelope):
                          t_ms=self.rise)
 
     def f(self, y: np.ndarray) -> np.ndarray:
-
         cos_rise = (np.cos(np.linspace(1 * np.pi, 2 * np.pi, self.rise_pts)) + 1) * 0.5
         cos_fall = np.flip(cos_rise)
 

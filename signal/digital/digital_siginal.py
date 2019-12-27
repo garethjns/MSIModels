@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Union
 
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 
 
 def ms_to_pts(t_ms: int, fs: int) -> int:
@@ -21,12 +21,14 @@ class DigitalSignal(ABC):
     Object representing basic properties of a digital signal, handles time <-> samples conversion. Doesn't bother
     with with analog <-> bits scale on y yet, though.
     """
+
     def __init__(self,
                  start: int = 0,
                  fs: int = 1000,
                  duration: int = 20,
                  mag: int = 1,
                  clip: float = 2,
+                 envelope: str = 'constant',
                  seed: Union[int, None] = None,
                  cache: bool = False) -> None:
         """
@@ -45,6 +47,7 @@ class DigitalSignal(ABC):
         self.fs = fs
         self.seed = seed
         self.state = seed
+        self.envelope = envelope
         self.cache = cache
         self.clip = clip
 
@@ -53,22 +56,22 @@ class DigitalSignal(ABC):
         self._state: np.random.RandomState
 
     @abstractmethod
-    def __repr__(self):
+    def __repr__(self) -> str:
         """__repr__ is used for id and eq, it should be redefined in children."""
         return f"DigitalTime(fs={self.fs}, duration={self.duration}, seed={self.state})"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Hash assumes important parameters are included in __repr__."""
         return hash(self.__repr__())
 
-    def __eq__(self, other):
+    def __eq__(self, other: "DigitalSignal") -> bool:
         return self.__hash__() == other.__hash__()
 
-    def __lt__(self, other):
+    def __lt__(self, other: "DigitalSignal") -> bool:
         """Ordering is undefined, but this is necessary for things like np.unique()."""
         return self.__hash__() < other.__hash__()
 
-    def clear(self):
+    def clear(self) -> None:
         """Remove the signal vector from memory."""
         self._y = None
         gc.collect()
@@ -78,17 +81,14 @@ class DigitalSignal(ABC):
         """Function to generate Signal. This should be overloaded in child."""
         return np.zeros(shape=(self.duration_pts,))
 
-    def _envelope_f(self) -> np.ndarray:
-        """Envelope function for whole signal - default is 180deg of a cosine."""
-        return (np.cos(np.linspace(1 * np.pi, 3 * np.pi, self.duration_pts)) + 1) * 0.5
-
     def _generate(self) -> np.ndarray:
         """
         Generate the signal.
 
         Combines the generator function, the envelope, and applies clipping.
         """
-        y = self._generate_f() * self._envelope_f()
+        y = self._generate_f()
+        y = self.envelope(y)
         y[y > self.clip] = self.clip
 
         return y
@@ -156,7 +156,7 @@ class DigitalSignal(ABC):
     @property
     def state(self) -> np.random.RandomState:
         return self._state
-    
+
     @state.setter
     def state(self, seed) -> None:
         self._state = np.random.RandomState(seed)

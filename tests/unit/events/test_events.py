@@ -6,7 +6,10 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 from matplotlib import pyplot as plt
 
-from stim.events import Event, NoiseEvent, SineEvent, CompoundEvent
+from signal.events.event import Event
+from signal.events.noise import NoiseEvent
+from signal.events.tonal import SineEvent
+from signal.sequences.sequence import CompoundEvent
 
 
 class TestEvent(unittest.TestCase):
@@ -302,7 +305,6 @@ class TestCompoundEvent(unittest.TestCase):
         sine_event_2.plot()
         sine_event_3.plot()
         compound_event.plot(show=True)
-
 
     def test_incompatible_events_fs_raises_error(self):
         sine_event = SineEvent()

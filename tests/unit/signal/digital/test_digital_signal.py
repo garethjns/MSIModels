@@ -2,9 +2,9 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 
-from stim.base_signal import pts_to_ms, ms_to_pts, DigitalSignal
+from signal.digital.digital_siginal import ms_to_pts, pts_to_ms, DigitalSignal
 
 
 class TestFunctions(unittest.TestCase):
@@ -60,5 +60,3 @@ class TestDigitalSignal(unittest.TestCase):
     def test_plot(self):
         self.dt_1.plot()
         plt.show()
-
-
