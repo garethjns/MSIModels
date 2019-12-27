@@ -474,22 +474,22 @@ class dataHelpers():
     
     def plotDists(self):
         
-        print('Mean event distribution in aud train set:')
+        print('Mean events distribution in aud train set:')
         plt.plot(np.mean(np.abs(self.xTrainAud), axis=0))
         plt.plot(np.mean(self.yTrainAud, axis=0))
         plt.show()
         
-        print('Mean event distribution in aud test set:')
+        print('Mean events distribution in aud test set:')
         plt.plot(np.mean(np.abs(self.xTestAud), axis=0))
         plt.plot(np.mean(self.yTestAud, axis=0))
         plt.show()
         
-        print('Mean event distribution in vis train set:')
+        print('Mean events distribution in vis train set:')
         plt.plot(np.mean(np.abs(self.xTrainVis), axis=0))
         plt.plot(np.mean(self.yTrainVis, axis=0))
         plt.show()
         
-        print('Mean event distribution in vis test set:')
+        print('Mean events distribution in vis test set:')
         plt.plot(np.mean(np.abs(self.xTestVis), axis=0))
         plt.plot(np.mean(self.yTestVis, axis=0))
         plt.show()

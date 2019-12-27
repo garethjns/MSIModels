@@ -13,7 +13,8 @@ from keras.layers import LSTM
 from keras import optimizers
 
 import importlib as il
-import utils
+from old import utils
+
 il.reload(utils)
 
 

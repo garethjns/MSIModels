@@ -9,20 +9,16 @@ Created on Thu Nov  2 13:53:14 2017
 # Reload libraries that might have been edited
 import importlib as il
 
-import LSTMModels
+from old import LSTMModels, utils, ConvModels
+
 il.reload(LSTMModels)
-from LSTMModels import LSTMModels
 
-import ConvModels
 il.reload(ConvModels)
-from ConvModels import ConvModels
+from old.ConvModels import ConvModels
 
-import utils
 il.reload(utils)
-from utils import dataHelpers as dh
-from utils import multiChannelMod as AVMod
-
-from keras import backend as K
+from old.utils import dataHelpers as dh
+from old.utils import multiChannelMod as AVMod
 
 import matplotlib.pyplot as plt
 import numpy as np

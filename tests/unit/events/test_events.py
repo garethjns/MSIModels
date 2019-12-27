@@ -1,7 +1,7 @@
 import copy
 import unittest
 from functools import partial
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -154,7 +154,7 @@ class TestCompoundEvent(unittest.TestCase):
                          start=start,
                          duration_pts=duration_pts,
                          x=np.linspace(start, duration_pts, duration_pts)
-)
+                         )
 
     def test_combiner_with_matching_events(self):
         sine_event = SineEvent(fs=10000)
@@ -315,3 +315,61 @@ class TestCompoundEvent(unittest.TestCase):
         noise_event = NoiseEvent(fs=100)
 
         self.assertRaises(ValueError, lambda: CompoundEvent(events=[sine_event, sine_event, noise_event]))
+
+    def test_create_from_fully_overlapping_long_list(self):
+        from signal.envelopes.templates import CosRiseEnvelope
+
+        rng = np.random.RandomState(123)
+
+        ev_kwargs = {'fs': 2000,
+                     'duration': 100,
+                     'envelope': partial(CosRiseEnvelope,
+                                         rise=10)}
+
+        n = 40
+        evs = [SineEvent(freq=e_i, **ev_kwargs) for e_i in rng.randint(5, 10, n)]
+
+        compound_event = CompoundEvent(evs)
+        compound_event.plot(channels=True,
+                            show=True)
+
+        self.assertEqual(compound_event.y.shape[0], 200)
+        self.assertEqual(compound_event.channels().shape[0], n)
+        self.assertEqual(compound_event.channels().shape[1], 200)
+
+    def test_create_from_non_overlapping_long_list(self):
+        rng = np.random.RandomState(123)
+
+        ev_kwargs = {'fs': 2000,
+                     'duration': 100}
+
+        n = 6
+        evs = [SineEvent(freq=f,
+                         start=s_i * 100,
+                         **ev_kwargs) for s_i, f in enumerate(rng.randint(5, 10, 6))]
+
+        compound_event = CompoundEvent(evs)
+        compound_event.plot(channels=True,
+                            show=True)
+
+        self.assertEqual(compound_event.y.shape[0], 200 * n)
+        self.assertEqual(compound_event.channels().shape[0], n)
+        self.assertEqual(compound_event.channels().shape[1], 200 * n)
+
+    def test_create_from_partially_overlapping_long_list(self):
+        ev_kwargs = {'fs': 2000,
+                     'duration': 100}
+
+        n = 3
+        start_step = 80
+        evs = [SineEvent(freq=10,
+                         start=s_i * start_step,
+                         **ev_kwargs) for s_i in range(n)]
+
+        compound_event = CompoundEvent(evs)
+        compound_event.plot(channels=True,
+                            show=True)
+
+        self.assertEqual(compound_event.y.shape[0], 200 + 200 + 120)
+        self.assertEqual(compound_event.channels().shape[0], n)
+        self.assertEqual(compound_event.channels().shape[1], 200 + 200 + 120)

@@ -9,23 +9,19 @@ Created on Thu Sep 28 13:47:42 2017
 # Reload libraries that might have been edited
 import importlib as il
 
-import LSTMModels
+from old import LSTMModels, utils, ConvModels
+
 il.reload(LSTMModels)
-from LSTMModels import LSTMModels
+from old.LSTMModels import LSTMModels
 
-import ConvModels
 il.reload(ConvModels)
-from ConvModels import ConvModels
+from old.ConvModels import ConvModels
 
-import utils
 il.reload(utils)
-from utils import dataHelpers as dh
-from utils import multiChannelMod as AVMod
+from old.utils import dataHelpers as dh
+from old.utils import multiChannelMod as AVMod
 
 from keras import backend as K
-
-import matplotlib.pyplot as plt
-
 
 #%% Load AV dataset
 
@@ -33,7 +29,7 @@ dPath = 'Data/'
 dSet = 'stimData_AV_s15_20000x400.mat'
 
 # Load the dataset
-data = dh(dPath+dSet, name='s15')
+data = dh(dPath+dSet, name='s14')
 data = data.loadMatAV()
 
 data = data.split(n=12000)
@@ -54,7 +50,7 @@ nEpLSTM = 75
 
 # K.clear_session()
 
-name = 'A_VConv_Late'
+name = 'AVConv_Late'
 modAVConv1 = AVMod(mod=ConvModels(name=name).multiChanLate,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nFil=256, ks=128, strides=32)
@@ -85,7 +81,7 @@ modAVConv1.save()
 
 K.clear_session()
 
-name = 'A_VConv_Early'
+name = 'AVConv_Early'
 modAVConv2 = AVMod(mod=ConvModels(name=name).multiChanEarly,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nFil=256, ks=128, strides=32)
@@ -109,8 +105,7 @@ modAVConv2.save()
 
 K.clear_session()
 
-name = 'A_VLSTM_Late'
-modAVLSTM = AVMod(mod=LSTMModels(name=name).multiChanLate,  
+modAVLSTM = AVMod(mod=LSTMModels(name='AVLSTM_Late').multiChanLate,  
                   dataLength = data.xTrainExpAud.shape[1], 
                   nPts=128)
 

@@ -7,13 +7,14 @@ Created on Tue Sep 12 14:44:42 2017
 
 #%% Imports
 
-from keras.models import Sequential, Model
-from keras.layers import Dense, Dropout, Flatten, Input, Embedding, concatenate
+from keras.models import Model
+from keras.layers import Dense, Dropout, Flatten, Input, concatenate
 from keras.layers import Conv1D
 from keras import optimizers
 
 import importlib as il
-import utils
+from old import utils
+
 il.reload(utils)
 
 
