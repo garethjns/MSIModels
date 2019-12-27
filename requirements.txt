@@ -1,4 +1,5 @@
 numpy
 pandas
 tensorflow>=2.0
+matplotlib
 seaborn

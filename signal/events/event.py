@@ -2,6 +2,7 @@ from functools import reduce, partial
 from typing import List, Tuple, Callable
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from signal.digital.conversion import pts_to_ms
 from signal.digital.digital_siginal import DigitalSignal
@@ -66,17 +67,17 @@ class CompoundEvent(Event):
         end = reduce(lambda ev_a, ev_b: max(ev_a, ev_b), [e.x_pts.max() for e in events])
         return start, end, end - start + 1
 
-    def _combiner(self,
-                  events: List[Event],
-                  weights: List[float] = None) -> Tuple[np.ndarray, np.ndarray]:
+    def channels(self) -> np.ndarray:
 
-        if weights is None:
-            weights = [1 / len(events) for _ in events]
-
-        y = np.zeros(shape=(len(events), self.duration_pts))
-        for e_i, (e, w) in enumerate(zip(events, weights)):
+        y = np.zeros(shape=(len(self.events), self.duration_pts))
+        for e_i, (e, w) in enumerate(zip(self.events, self.weights)):
             y[e_i, e.x_pts - self.start] = e.y * w
 
+        return y
+
+    def _combiner(self) -> Tuple[np.ndarray, np.ndarray]:
+
+        y = self.channels()
         y = y.sum(axis=0)
 
         return y
@@ -88,5 +89,13 @@ class CompoundEvent(Event):
         Returns as Callable that does the combination using the .y properties on each Event. This callable can be
         assigned to ._generate_f which maintains the Event API.
         """
-        return partial(lambda: self._combiner(events=self.events,
-                                              weights=self.weights))
+        return self._combiner
+
+    def plot(self,
+             channels: bool = False,
+             *args, **kwargs):
+
+        if channels:
+            plt.plot(self.x, self.channels().T)
+
+        super().plot(*args, **kwargs)

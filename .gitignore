@@ -18,9 +18,9 @@ $RECYCLE.BIN/
 *.lnk
 
 # Folders
-Backups
-Data
-Models
+old/Backups
+old/Data
+old/Models
 /.ipynb_*
 
 # MATLAB
