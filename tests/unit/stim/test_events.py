@@ -1,7 +1,7 @@
 import copy
 import unittest
 from functools import partial
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -140,17 +140,30 @@ class TestSineEvent(unittest.TestCase):
 
 
 class TestCompoundEvent(unittest.TestCase):
+
+    @staticmethod
+    def _mock_compound_event(fs, start, duration_pts) -> MagicMock:
+        return MagicMock(fs=fs,
+                         start=start,
+                         duration_pts=duration_pts,
+                         x=np.linspace(start, duration_pts, duration_pts)
+)
+
     def test_combiner_with_matching_events(self):
         sine_event = SineEvent(fs=10000)
         noise_event = NoiseEvent(mag=0.3,
                                  fs=10000)
 
-        x, y = CompoundEvent._combiner([sine_event, noise_event])
+        mock_event = self._mock_compound_event(fs=1000,
+                                               start=0,
+                                               duration_pts=200)
 
-        self.assertEqual(len(x), 200)
-        self.assertEqual(len(y), 200)
+        y = CompoundEvent._combiner(mock_event, [sine_event, noise_event])
 
-        plt.plot(x, y)
+        self.assertEqual(len(mock_event.x), mock_event.duration_pts)
+        self.assertEqual(len(y), mock_event.duration_pts)
+
+        plt.plot(mock_event.x, y)
         plt.show()
 
     def test_combiner_with_non_matching_events(self):
@@ -161,12 +174,16 @@ class TestCompoundEvent(unittest.TestCase):
                                  duration=1000,
                                  fs=1000)
 
-        x, y = CompoundEvent._combiner([sine_event, noise_event])
+        mock_event = self._mock_compound_event(fs=1000,
+                                               start=0,
+                                               duration_pts=1000)
 
-        self.assertEqual(len(x), 1000)
-        self.assertEqual(len(y), 1000)
+        y = CompoundEvent._combiner(mock_event, [sine_event, noise_event])
 
-        plt.plot(x, y)
+        self.assertEqual(len(mock_event.x), mock_event.duration_pts)
+        self.assertEqual(len(y), mock_event.duration_pts)
+
+        plt.plot(mock_event.x, y)
         plt.show()
 
     def test_combiner_with_multiple_non_matching_events(self):
@@ -181,12 +198,16 @@ class TestCompoundEvent(unittest.TestCase):
                                  fs=1000,
                                  start=600)
 
-        x, y = CompoundEvent._combiner([sine_event_1, sine_event_2, noise_event])
+        mock_event = self._mock_compound_event(fs=1000,
+                                               start=0,
+                                               duration_pts=1600)
 
-        self.assertEqual(len(x), 1600)
-        self.assertEqual(len(y), 1600)
+        y = CompoundEvent._combiner(mock_event, [sine_event_1, sine_event_2, noise_event])
 
-        plt.plot(x, y)
+        self.assertEqual(len(mock_event.x), mock_event.duration_pts)
+        self.assertEqual(len(y), mock_event.duration_pts)
+
+        plt.plot(mock_event.x, y)
         plt.show()
 
     def test_combiner_with_equal_weighted_events(self):
@@ -197,11 +218,17 @@ class TestCompoundEvent(unittest.TestCase):
                                  duration=1000,
                                  start=0)
 
-        x, y = CompoundEvent._combiner([constant_event_1,  constant_event_2])
+        mock_event = self._mock_compound_event(fs=1000,
+                                               start=0,
+                                               duration_pts=1000)
 
-        self.assertAlmostEqual(max(y), 1, 3)
+        y = CompoundEvent._combiner(mock_event, [constant_event_1, constant_event_2])
 
-        plt.plot(x, y)
+        self.assertAlmostEqual(float(max(y)), 1, 3)
+        self.assertEqual(len(mock_event.x), mock_event.duration_pts)
+        self.assertEqual(len(y), mock_event.duration_pts)
+
+        plt.plot(mock_event.x, y)
         plt.show()
 
     def test_combiner_with_unequal_weighted_events(self):
@@ -212,14 +239,20 @@ class TestCompoundEvent(unittest.TestCase):
                                  duration=1000,
                                  start=0)
 
-        x, y = CompoundEvent._combiner([constant_event_1,  constant_event_2],
-                                       weights=[0.5, 1])
+        mock_event = self._mock_compound_event(fs=1000,
+                                               start=0,
+                                               duration_pts=1000)
 
-        self.assertAlmostEqual(max(y), 1.5, 3)
+        y = CompoundEvent._combiner(mock_event, [constant_event_1, constant_event_2],
+                                    weights=[0.5, 1])
+
+        self.assertAlmostEqual(float(max(y)), 1.5, 3)
+        self.assertEqual(len(mock_event.x), mock_event.duration_pts)
+        self.assertEqual(len(y), mock_event.duration_pts)
 
         constant_event_1.plot()
         constant_event_2.plot()
-        plt.plot(x, y)
+        plt.plot(mock_event.x, y)
         plt.show()
 
     def test_sine_noise_multiply(self):
@@ -230,13 +263,22 @@ class TestCompoundEvent(unittest.TestCase):
         compound_event = sine_event * noise_event
 
         self.assertAlmostEqual(float(np.mean(sine_event.y)), float(np.mean(compound_event.y)), 1)
-        self.assertGreater(np.std(compound_event.y), np.std(sine_event.y))
 
     def test_construct_from_list_of_2(self):
         sine_event = SineEvent()
         compound_event = CompoundEvent(events=[sine_event, sine_event])
 
-        self.assertAlmostEqual(np.mean(sine_event.y), np.mean(compound_event.y), 0)
+        self.assertAlmostEqual(float(np.mean(sine_event.y)), float(np.mean(compound_event.y)), 0)
+        # This should be same as weighting is equal proportions by default
+        self.assertAlmostEqual(float(np.std(compound_event.y)), float(np.std(sine_event.y)))
+
+    def test_construct_from_list_of_2_set_weights(self):
+        sine_event = SineEvent()
+        compound_event = CompoundEvent(events=[sine_event, sine_event],
+                                       weights=[1, 1])
+
+        self.assertAlmostEqual(float(np.mean(sine_event.y)), float(np.mean(compound_event.y)), 0)
+        # This should be greater as weights are a total of 2
         self.assertGreater(np.std(compound_event.y), np.std(sine_event.y))
 
     def test_construct_from_list_of_3(self):
@@ -244,17 +286,26 @@ class TestCompoundEvent(unittest.TestCase):
         noise_event = NoiseEvent()
         compound_event = CompoundEvent(events=[sine_event, sine_event, noise_event])
 
-        self.assertAlmostEqual(np.mean(sine_event.y), np.mean(compound_event.y), 0)
-        self.assertGreater(np.std(compound_event.y), np.std(sine_event.y))
+        self.assertAlmostEqual(float(np.mean(sine_event.y)), float(np.mean(compound_event.y)), 0)
+
+    def test_construct_from_offset_list_of_3(self):
+        sine_event_1 = SineEvent(start=100,
+                                 duration=1000)
+        sine_event_2 = SineEvent(start=300,
+                                 duration=1000)
+        sine_event_3 = SineEvent(start=500,
+                                 duration=1000)
+
+        compound_event = CompoundEvent(events=[sine_event_1, sine_event_2, sine_event_3])
+
+        sine_event_1.plot()
+        sine_event_2.plot()
+        sine_event_3.plot()
+        compound_event.plot(show=True)
+
 
     def test_incompatible_events_fs_raises_error(self):
         sine_event = SineEvent()
         noise_event = NoiseEvent(fs=100)
-
-        self.assertRaises(ValueError, lambda: CompoundEvent(events=[sine_event, sine_event, noise_event]))
-
-    def test_incompatible_events_duration_raises_error(self):
-        sine_event = SineEvent(duration=100)
-        noise_event = NoiseEvent()
 
         self.assertRaises(ValueError, lambda: CompoundEvent(events=[sine_event, sine_event, noise_event]))
