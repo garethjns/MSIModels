@@ -1,6 +1,6 @@
 import numpy as np
 
-from signal.digital.digital_siginal import ms_to_pts
+from signal.digital.conversion import ms_to_pts
 from signal.envelopes.envelope import Envelope
 
 
@@ -15,14 +15,7 @@ class CosEnvelope(Envelope):
 
 
 class CosRiseEnvelope(Envelope):
-    def __init__(self, fs: int, rise: int) -> None:
-        """
-
-        :param fs: Sampling rate in Hz.
-        :param rise: Rise in ms.
-        """
-        self.rise = rise
-        self.fs = fs
+    rise: int
 
     @property
     def rise_pts(self) -> int:

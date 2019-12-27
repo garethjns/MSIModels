@@ -4,16 +4,9 @@ from typing import Union
 
 import numpy as np
 from matplotlib import pyplot as plt
+from signal.digital.conversion import ms_to_pts
 
-
-def ms_to_pts(t_ms: int, fs: int) -> int:
-    """Convert time in ms to time in pts."""
-    return int(fs * t_ms / 1000)
-
-
-def pts_to_ms(t_pts: int, fs: int) -> int:
-    """Convert time in pts to time in ms (to nearest whole)"""
-    return int(np.round(t_pts * 1000 / fs))
+from signal.envelopes.templates import Envelope, ConstantEnvelope
 
 
 class DigitalSignal(ABC):
@@ -28,7 +21,7 @@ class DigitalSignal(ABC):
                  duration: int = 20,
                  mag: int = 1,
                  clip: float = 2,
-                 envelope: str = 'constant',
+                 envelope: Envelope = ConstantEnvelope,
                  seed: Union[int, None] = None,
                  cache: bool = False) -> None:
         """
@@ -50,6 +43,8 @@ class DigitalSignal(ABC):
         self.envelope = envelope
         self.cache = cache
         self.clip = clip
+
+        self.envelope = envelope(fs=fs)
 
         self._y: Union[np.ndarray, None] = None
         self._seed: int
