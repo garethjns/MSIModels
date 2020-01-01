@@ -1,5 +1,5 @@
 from functools import reduce, partial
-from typing import List, Tuple, Callable
+from typing import List, Tuple, Callable, Union
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -99,3 +99,30 @@ class CompoundEvent(Event):
             plt.plot(self.x, self.channels().T)
 
         super().plot(*args, **kwargs)
+
+    def plot_subplots(self,
+                      show: bool = False):
+        fig, ax = plt.subplots(nrows=len(self.events) + 1,
+                               ncols=1)
+
+        for e_i, e in enumerate(self.events):
+            ax[e_i].plot(e.x, e.y)
+            ax[e_i].set_xlim([self.x[0], self.x[-1]])
+
+        ax[-1].plot(self.x, self.y)
+
+        if show:
+            plt.show()
+
+    def to_list(self) -> List[Event]:
+        evs = []
+        for ev in self.events:
+            evs.append(self.recursive_transverse(ev))
+
+        return evs
+
+    def recursive_transverse(self, ev: Union[List[Event], Event]):
+        if not isinstance(ev, CompoundEvent):
+            return ev
+        else:
+            return self.recursive_transverse(ev.events)
