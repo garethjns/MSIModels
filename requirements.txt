@@ -3,4 +3,5 @@ pandas
 tensorflow>=2.0
 matplotlib
 seaborn
-audiodag
+audiodag==0.0.11
+pydantic
