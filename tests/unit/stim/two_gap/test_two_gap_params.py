@@ -5,16 +5,12 @@ from audiodag.signal.components.noise import NoiseComponent
 from audiodag.signal.components.tonal import SineComponent
 from audiodag.signal.envelopes.templates import CosRiseEnvelope
 
-from msi_models.stim.two_gap import TwoGapParams, TwoGapStim
-from msi_models.exceptions.params import IncompatibleParametersException, InvalidParameterException
+from msi_models.exceptions.params import InvalidParameterException, IncompatibleParametersException
+from msi_models.stim.two_gap.two_gap_params import TwoGapParams
 
 
 class TestTwoGapParams(unittest.TestCase):
     _sut = TwoGapParams
-
-    def test_compatible_params_raise_no_validation_errors(self):
-        params = self._sut.example_basic()
-        self.assertIsInstance(params, TwoGapParams)
 
     def test_invalid_background_param_raises_validation_error(self):
         event = partial(SineComponent, duration=20, freq=8, fs=1000, mag=2)
@@ -34,11 +30,3 @@ class TestTwoGapParams(unittest.TestCase):
         self.assertRaises(IncompatibleParametersException,
                           lambda: TwoGapParams(duration=1000, n_events=10, event=event, gap_1=gap_1, gap_2=gap_1,
                                                background=background))
-
-
-class TestTwoGapStim(unittest.TestCase):
-    _sut = TwoGapStim
-
-    def test_construction_from_basic_params_works(self):
-        stim = self._sut.construct_from_basic()
-        self.assertIsInstance(stim, TwoGapStim)

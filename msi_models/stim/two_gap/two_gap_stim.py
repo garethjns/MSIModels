@@ -1,96 +1,13 @@
 from functools import partial
 from itertools import zip_longest
-from typing import Callable, Union, Tuple
+from typing import Tuple
 
 import numpy as np
 from audiodag.signal.components.component import Component, CompoundComponent
-from audiodag.signal.components.noise import NoiseComponent
-from audiodag.signal.components.tonal import SineComponent
-from audiodag.signal.envelopes.templates import CosRiseEnvelope
-from pydantic import BaseModel, PositiveInt, validator, root_validator
 
-from msi_models.exceptions.params import IncompatibleParametersException, InvalidParameterException
+from msi_models.exceptions.params import IncompatibleParametersException
 from msi_models.stim.seeded import Seeded
-
-
-def _callable_and_returns_expected_type(v, values, **kwargs):
-    """This should run fast with lazy generation in audiodag components"""
-    try:
-        v_ = v()
-    except Exception:
-        raise InvalidParameterException(f"Invalid parameter")
-
-    if not isinstance(v_, Component):
-        raise IncompatibleParametersException(f"Events and gaps partial functions should return Components "
-                                              f"(or CompoundComponents) not {type(v_)}")
-    return v
-
-
-class TwoGapParams(BaseModel):
-    """
-    Params object for TwoGapStim.
-
-    :param duration: Total duration of stim.
-    :param event: Partial function describing event. TODO: Can be swapped for an audiodag Component / CompoundComponent
-                                                           when start time updates are supported
-                                                           (see audiodag CompoundComponent._adjust_start)
-    :param n_events: Number of events to add to stim.
-    :param background: Background component, will be duration long.
-    :param gap_1: Partial function describing gap_1. Again could be actual Component in future, and start time is
-                  adjusted when sequence is generated.
-    :param gap_2: Partial function describing gap_2
-    :param seed: Int to generate numpy seed.
-    :param cache: Bool to turn caching of generated stim on or off
-    :param duration_tol: Acceptable deviation of total duration of selected gap combination, as proportion of duration.
-    """
-    duration: PositiveInt
-    event: Union[partial, Callable]
-    n_events: PositiveInt
-    background: Union[partial, Callable]
-    gap_1: Union[partial, Callable]
-    gap_2: Union[partial, Callable]
-    background_weight: float = 0
-    seed: Union[PositiveInt, None] = None
-    cache: bool = True
-    duration_tol: float = 0.3
-
-    class Config:
-        """Allow setting of partial type."""
-        arbitrary_types_allowed = True
-
-    _validate_event = validator("event", allow_reuse=True)(_callable_and_returns_expected_type)
-    _validate_background = validator("background", allow_reuse=True)(_callable_and_returns_expected_type)
-    _validate_gap_1 = validator("gap_1", allow_reuse=True)(_callable_and_returns_expected_type)
-    _validate_gap_2 = validator("gap_2", allow_reuse=True)(_callable_and_returns_expected_type)
-
-    @root_validator
-    def sampling_freqs_match(cls, values):
-        """This should run fast with lazy generation in audiodag components"""
-        fss = {k: values[k]().fs for k in ["gap_1", "gap_2", "event", "background"]}
-        if len(np.unique(list(fss.values()))) > 1:
-            raise IncompatibleParametersException(f"Sampling frequency mismatch between:"
-                                                  f"({fss}")
-        return values
-
-    @classmethod
-    def example_basic(cls,
-                      duration: PositiveInt = 1000,
-                      n_events: PositiveInt = 10,
-                      fs: PositiveInt = 1000,
-                      gap_1_duration: PositiveInt = 25,
-                      gap_2_duration: PositiveInt = 50) -> "TwoGapParams":
-        event_sine_component = SineComponent(duration=gap_1_duration, freq=8, fs=fs, mag=2)
-        event_noise_component = NoiseComponent(duration=gap_1_duration, fs=fs, mag=0.02)
-        event = partial(CompoundComponent,
-                        events=[event_sine_component, event_noise_component])
-
-        gap_1 = partial(NoiseComponent, duration=gap_1_duration, mag=0.02, fs=fs)
-        gap_2 = partial(NoiseComponent, duration=gap_2_duration, mag=0.02, fs=fs)
-        background = partial(NoiseComponent, duration=duration, fs=fs, mag=0.02,
-                             envelope=partial(CosRiseEnvelope, rise=20))
-
-        return TwoGapParams(duration=duration, n_events=n_events, event=event, gap_1=gap_1, gap_2=gap_2,
-                            background=background, background_weight=2)
+from msi_models.stim.two_gap.two_gap_params import TwoGapParams
 
 
 class TwoGapStim(Seeded):
@@ -109,11 +26,7 @@ class TwoGapStim(Seeded):
         self.gap_ns_ = None
         self.active_duration_ = None
 
-    @classmethod
-    def construct_from_basic(cls, **kwargs) -> "TwoGapStim":
-        return TwoGapStim(TwoGapParams.example_basic(**kwargs))
-
-    def _generate(self) -> CompoundComponent:
+    def _generate(self) -> Tuple[CompoundComponent, CompoundComponent]:
         self.state = self.seed
         self._generate_valid_combinations()
         self._generate_sequence()
@@ -177,7 +90,7 @@ class TwoGapStim(Seeded):
                                  + self.pool_[1] * self.params.gap_2().duration
                                  + self.params.n_events * self.params.event().duration)
 
-    def _generate_events(self) ->Tuple[CompoundComponent, CompoundComponent]:
+    def _generate_events(self) -> Tuple[CompoundComponent, CompoundComponent]:
         """
         Generate a CompoundComponent from the prepared event sequence.
         """
@@ -186,12 +99,12 @@ class TwoGapStim(Seeded):
         cursor = np.random.randint(self.params.duration - self.active_duration_)
 
         # Generate actual events with now-known start times. Also make make indicating event locations.
-        evs = [self.params.background()]
+        evs = [self.params.background(start=0)]
         weights = [self.params.background_weight]
-        indicators = [self._indicator_background()]
+        indicators = [self._indicator_background(start=0)]
         for ev in self.ev_list_:
             ev_init = ev(start=cursor)
-
+            ev_init.y
             evs.append(ev_init)
             weights.append(1)
 
@@ -203,7 +116,7 @@ class TwoGapStim(Seeded):
         return (CompoundComponent(events=evs, weights=weights),
                 CompoundComponent(events=indicators))
 
-    def _get_or_generate(self) -> Tuple[CompoundComponent]:
+    def _get_or_generate(self) -> Tuple[CompoundComponent, CompoundComponent]:
 
         if (self._y is None) or (self._y_true is None):
             y, y_true = self._generate()
@@ -228,15 +141,31 @@ class TwoGapStim(Seeded):
 
 if __name__ == "__main__":
 
+    from msi_models.stim.two_gap.two_gap_templates import template_sine_events, template_noisy_sine_events
+
     # Example stim:
-    stim = TwoGapStim.construct_from_basic()
+    stim = TwoGapStim(template_sine_events())
+    stim.y.plot(show=False)
+    stim.y_true.plot(show=True)
+
+    # Example stim:
+    stim = TwoGapStim(template_noisy_sine_events(fs=800))
     stim.y.plot(show=False)
     stim.y_true.plot(show=True)
 
     # Example stims with increasing events
     for n in range(8, 14):
         try:
-            stim = TwoGapStim.construct_from_basic(n_events=n)
+            stim = TwoGapStim(template_sine_events(n_events=n))
+            stim.y.plot(show=False)
+            stim.y_true.plot(show=True)
+
+        except IncompatibleParametersException as e:
+            print(e)
+
+    for n in range(8, 14):
+        try:
+            stim = TwoGapStim(template_noisy_sine_events(n_events=n))
             stim.y.plot(show=False)
             stim.y_true.plot(show=True)
 

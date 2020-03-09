@@ -1,7 +1,12 @@
 numpy
 pandas
-tensorflow>=2.0
+tensorflow-gpu>=2.0
 matplotlib
 seaborn
-audiodag==0.0.11
+audiodag==0.0.15
 pydantic
+pydot
+graphviz
+h5py
+joblib
+tables
