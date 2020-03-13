@@ -104,7 +104,6 @@ class TwoGapStim(Seeded):
         indicators = [self._indicator_background(start=0)]
         for ev in self.ev_list_:
             ev_init = ev(start=cursor)
-            ev_init.y
             evs.append(ev_init)
             weights.append(1)
 

@@ -8,7 +8,7 @@ from msi_models.stim.two_gap.two_gap_stim import TwoGapStim
 from msi_models.stim.two_gap.two_gap_templates import template_sine_events
 
 
-def unisensory_binary(n: PositiveInt = 400,
+def unisensory_binary(n: PositiveInt = 2,
                       fs: PositiveInt = 512,
                       duration: PositiveInt = 1000,
                       events: List[int] = None):

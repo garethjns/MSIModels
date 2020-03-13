@@ -5,6 +5,7 @@ import numpy as np
 from audiodag.signal.digital.conversion import ms_to_pts
 from joblib import Parallel, delayed
 from pydantic import PositiveInt
+from tqdm import tqdm
 
 from msi_models.stim.two_gap.two_gap_stim import TwoGapStim
 from msi_models.stim.two_gap.two_gap_templates import template_sine_events
@@ -15,7 +16,7 @@ def batch(n: PositiveInt = 400,
           duration: PositiveInt = 1000,
           events: List[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     if events is None:
-        events = [8, 9, 10, 11, 12, 13]
+        events = [11, 12, 13, 14, 15, 16]
     events_mean = np.mean(events)
 
     x_indicators = np.zeros(shape=(n, ms_to_pts(duration, fs)))
@@ -29,27 +30,31 @@ def batch(n: PositiveInt = 400,
 
         y_dec[n_i, int(n_events >= events_mean)] = 1
 
-        params = template_sine_events(duration=duration,
+        params = template_sine_events(n_events=n_events,
+                                      duration_tol=0.8,
+                                      duration=duration,
                                       fs=fs)
-        x[n_i, :] = TwoGapStim(params).y.y
-        x_indicators[n_i, :] = TwoGapStim(params).y_true.y
+        stim = TwoGapStim(params)
+        x[n_i, :] = stim.y.y
+        x_indicators[n_i, :] = stim.y_true.y
 
     return np.expand_dims(x, axis=2), np.expand_dims(x_indicators, axis=2), y_rate, y_dec
 
 
 def generate_unisensory_binary(n: PositiveInt = 400,
-                               fs: PositiveInt = 512,
-                               duration: PositiveInt = 1000,
+                               fs: PositiveInt = 500,
+                               duration: PositiveInt = 1300,
                                batch_size: PositiveInt = 20,
                                events: List[int] = None,
                                fn: str = 'unisensory_data.hdf5',
                                n_jobs: int = -2):
     n_batches = int(n / batch_size)
     xy = Parallel(backend='loky',
+                  verbose=0,
                   n_jobs=n_jobs)(delayed(batch)(n=batch_size,
                                                 duration=duration,
                                                 fs=fs,
-                                                events=events) for _ in range(n_batches))
+                                                events=events) for _ in tqdm(range(n_batches)))
 
     x = np.concatenate([b[0] for b in xy], axis=0)
     x_indicators = np.concatenate([b[1] for b in xy], axis=0)
@@ -64,5 +69,5 @@ def generate_unisensory_binary(n: PositiveInt = 400,
 
 
 if __name__ == "__main__":
-    generate_unisensory_binary(n=25000,
-                               batch_size=50)
+    generate_unisensory_binary(n=10000,
+                               batch_size=4)

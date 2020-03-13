@@ -19,17 +19,17 @@ class TestUnisensoryBinary(unittest.TestCase):
         self.assertEqual(1, len(x.values()))
         x_ = list(x.values())[0]
         self.assertIsInstance(x_, np.ndarray)
-        self.assertEqual((200, 1000, 1), x_.shape)
+        self.assertEqual((2, 512, 1), x_.shape)
 
         self.assertIsInstance(y, dict)
-        self.assertEqual(1, len(y.values()))
+        self.assertEqual(2, len(y.values()))
         y_ = list(y.values())[0]
         self.assertIsInstance(y_, np.ndarray)
-        self.assertEqual((200,), y_.shape)
+        self.assertEqual((2,), y_.shape)
 
     def test_alternates_return_expected_shapes(self):
 
-        x, y = next(unisensory_binary(n=100,
+        x, y = next(unisensory_binary(n=3,
                                       duration=900,
                                       fs=1200))
 
@@ -37,10 +37,10 @@ class TestUnisensoryBinary(unittest.TestCase):
         self.assertEqual(1, len(x.values()))
         x_ = list(x.values())[0]
         self.assertIsInstance(x_, np.ndarray)
-        self.assertEqual((100, 1080, 1), x_.shape)
+        self.assertEqual((3, 1080, 1), x_.shape)
 
         self.assertIsInstance(y, dict)
-        self.assertEqual(1, len(y.values()))
+        self.assertEqual(2, len(y.values()))
         y_ = list(y.values())[0]
         self.assertIsInstance(y_, np.ndarray)
-        self.assertEqual((100,), y_.shape)
+        self.assertEqual((3,), y_.shape)

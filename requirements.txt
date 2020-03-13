@@ -10,3 +10,4 @@ graphviz
 h5py
 joblib
 tables
+tqdm
