@@ -62,12 +62,12 @@ def generate_unisensory_binary(n: PositiveInt = 400,
     y_dec = np.concatenate([b[3] for b in xy], axis=0)
 
     with h5py.File(fn, 'w') as f:
-        f.create_dataset("x", data=x, compression='gzip', chunks=(100, duration / 1000 * fs, 1))
+        f.create_dataset("x_1", data=x, compression='gzip', chunks=(100, duration / 1000 * fs, 1))
         f.create_dataset("x_indicators", data=x_indicators, compression='gzip', chunks=(100, duration / 1000 * fs, 1))
-        f.create_dataset("y_rate", data=y_rate, compression='gzip', chunks=(100,))
-        f.create_dataset("y_dec", data=y_dec, compression='gzip', chunks=(100, 2))
+        f.create_dataset("rate_output", data=y_rate, compression='gzip', chunks=(100,))
+        f.create_dataset("dec_output", data=y_dec, compression='gzip', chunks=(100, 2))
 
 
 if __name__ == "__main__":
-    generate_unisensory_binary(n=10000,
-                               batch_size=4)
+    generate_unisensory_binary(n=3000,
+                               batch_size=20)

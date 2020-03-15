@@ -16,7 +16,6 @@ class Seeded:
 
         self._seed: int
         self._state: np.random.RandomState
-        self._y: Union[None, CompoundComponent] = None
 
     @property
     def seed(self) -> int:

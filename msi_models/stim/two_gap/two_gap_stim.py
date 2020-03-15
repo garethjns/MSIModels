@@ -1,6 +1,6 @@
 from functools import partial
 from itertools import zip_longest
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 from audiodag.signal.components.component import Component, CompoundComponent
@@ -18,7 +18,7 @@ class TwoGapStim(Seeded):
         event = self.params.event()
         self._indicator_event = partial(Component, duration=event.duration, fs=event.fs, mag=1)
         self._indicator_background = partial(Component, duration=params.duration, fs=event.fs, mag=0)
-        self._y = None
+        self._y: Union[None, CompoundComponent] = None
         self._y_true = None
 
         self.pool_ = None

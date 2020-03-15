@@ -3,7 +3,7 @@ pandas
 tensorflow-gpu>=2.0
 matplotlib
 seaborn
-audiodag==0.0.15
+audiodag==0.0.16
 pydantic
 pydot
 graphviz
@@ -11,3 +11,4 @@ h5py
 joblib
 tables
 tqdm
+scikit-learn
