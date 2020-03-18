@@ -5,11 +5,11 @@ from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig, Channel
 
 if __name__ == "__main__":
-    chan_confg = ChannelConfig(path='data/unisensory_data.hdf5',
-                               x_keys=['x_1', 'x_indicators'],
-                               y_keys=['rate_output', 'dec_output'])
+    chan_config = ChannelConfig(path='data/unisensory_data_hard.hdf5',
+                                x_keys=['x_1', 'x_indicators'],
+                                y_keys=['rate_output', 'dec_output'])
 
-    chan = Channel(chan_confg)
+    chan = Channel(chan_config)
 
     chan.plot_example(show=True)
     chan.plot_example(show=True)

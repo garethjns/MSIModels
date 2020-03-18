@@ -164,7 +164,8 @@ if __name__ == "__main__":
 
     for n in range(8, 14):
         try:
-            stim = TwoGapStim(template_noisy_sine_events(n_events=n))
+            stim = TwoGapStim(template_noisy_sine_events(n_events=n,
+                                                         background_mag=0.09))
             stim.y.plot(show=False)
             stim.y_true.plot(show=True)
 

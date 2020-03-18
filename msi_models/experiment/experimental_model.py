@@ -16,14 +16,14 @@ class ExperimentalModel:
         self.data = data
         self.model = model
         self.preds_train: Dict[str, np.ndarray] = None
-        self.preds_train: Dict[str, np.ndarray] = None
+        self.preds_test: Dict[str, np.ndarray] = None
 
     def fit(self):
         self.model.fit(self.data.x_train, self.data.y_train,
                        shuffle=True,
                        validation_split=0.2,
                        batch_size=2000,
-                       epochs=500,
+                       epochs=self.model.epochs,
                        verbose=2)
 
     def _predict_batches(self, data: Dict[str, np.ndarray],
@@ -54,8 +54,8 @@ class ExperimentalModel:
                      mistake: bool = False):
 
         if mistake:
-            mistakes = ~((self.preds_test["dec_output"][:, 1] > 0.5)
-                         == (self.data.y_test["dec_output"][:, 1].astype(bool)))
+            mistakes = ~((self.preds_test["y_dec"][:, 1] > 0.5)
+                         == (self.data.y_test["y_dec"][:, 1].astype(bool)))
             row = np.random.choice(np.where(mistakes)[0])
         else:
             row = np.random.choice(range(0, self.data.n_test))
@@ -73,14 +73,14 @@ class ExperimentalModel:
             plt.show()
 
     def report(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        train_df = pd.DataFrame({'rate_output': self.data.y_train["rate_output"],
-                                 'preds_rate': self.preds_train["rate_output"].squeeze(),
-                                 'dec_output': self.data.y_train["dec_output"][:, 1],
-                                 'preds_dec': self.preds_train["dec_output"][:, 1]})
+        train_df = pd.DataFrame({'rate_output': self.data.y_train["y_rate"],
+                                 'preds_rate': self.preds_train["y_rate"].squeeze(),
+                                 'dec_output': self.data.y_train["y_dec"][:, 1],
+                                 'preds_dec': self.preds_train["y_dec"][:, 1]})
 
-        test_df = pd.DataFrame({'rate_output': self.data.y_test["rate_output"],
-                                'preds_rate': self.preds_test["rate_output"].squeeze(),
-                                'dec_output': self.data.y_test["dec_output"][:, 1],
-                                'preds_dec': self.preds_test["dec_output"][:, 1]})
+        test_df = pd.DataFrame({'rate_output': self.data.y_test["y_rate"],
+                                'preds_rate': self.preds_test["y_rate"].squeeze(),
+                                'dec_output': self.data.y_test["y_dec"][:, 1],
+                                'preds_dec': self.preds_test["y_dec"][:, 1]})
 
         return train_df, test_df

@@ -1,4 +1,4 @@
-from typing import List, Union, Dict
+from typing import List, Dict, Union
 
 import h5py
 import matplotlib.pyplot as plt
@@ -12,13 +12,16 @@ class ChannelConfig(BaseModel):
     path: FilePath
     x_keys: List[str]
     y_keys: List[str]
+    key: str = ''
     seed: int = 0
     train_prop: float = 0.8
 
     @root_validator
     def all_keys_exist_and_match_len(cls, values):
         with h5py.File(values['path'], 'r') as f:
-            keys = list(f.keys())
+
+            key = "/" if values["key"] == "" else values["key"]
+            keys = list(f[key].keys())
 
         if not np.all([v in keys for v in values["x_keys"]]):
             raise InvalidParameterException(f"Some of x_keys ({values['x_keys']}) missing from file keys ({keys})")
@@ -32,8 +35,11 @@ class ChannelConfig(BaseModel):
 class Channel:
     def __init__(self, channel_config: ChannelConfig):
         self.config = channel_config
+        self.x_keys = ["/".join([self.config.key, k]).strip('/') for k in self.config.x_keys]
+        self.y_keys = ["/".join([self.config.key, k]).strip('/') for k in self.config.y_keys]
+
         with h5py.File(self.config.path, 'r') as f:
-            self.n: int = f[channel_config.y_keys[0]].shape[0]
+            self.n: int = f[self.y_keys[0]].shape[0]
 
         self._x: Dict[str, np.ndarray] = None
         self._y: Dict[str, np.ndarray] = None
@@ -45,25 +51,26 @@ class Channel:
             keys = [keys]
 
         with h5py.File(self.config.path, 'r') as f:
-            data = {k: f[k][:] for k in keys}
+            data = {k.replace("/", "_"): f[k][:] for k in keys}
 
         return data
 
     def _split(self):
         if self.train_idx is None:
-            self.n_train = int(self.n * self.config.train_prop)
+            self.n_train = max(int(self.n * self.config.train_prop), 1)
             self.n_test = self.n - self.n_train
-            np.random.RandomState(self.config.seed)
-            shuffled_idx = np.random.choice(range(self.n),
-                                            replace=False,
-                                            size=self.n)
+
+            state = np.random.RandomState(self.config.seed)
+            shuffled_idx = np.array(range(self.n))
+            state.shuffle(shuffled_idx)
+
             self.train_idx = shuffled_idx[0: self.n_train]
             self.test_idx = shuffled_idx[self.n_train::]
 
     @property
     def x(self) -> Dict[str, np.ndarray]:
         if self._x is None:
-            x = self._load(keys=self.config.x_keys)
+            x = self._load(keys=self.x_keys)
             self._x = x
             self.n = list(x.values())[0].shape[0]
 
@@ -72,8 +79,8 @@ class Channel:
     @property
     def y(self) -> Dict[str, np.ndarray]:
         if self._y is None:
-            y = self._load(keys=self.config.y_keys)
-            self._y = self._load(keys=self.config.y_keys)
+            y = self._load(keys=self.y_keys)
+            self._y = y
             self.n = list(y.values())[0].shape[0]
 
         return self._y
