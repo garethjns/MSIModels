@@ -1,17 +1,36 @@
-import warnings
-from typing import List, Any, Union
+import os
+from datetime import datetime
+from typing import List, Union
 
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-from pydantic import BaseModel, root_validator, PositiveInt, validator
+from pydantic import BaseModel, root_validator, PositiveInt, validator, FilePath
 
-from msi_models.exceptions.params import IncompatibleParametersException
+from msi_models.exceptions.params import IncompatibleParametersException, InvalidParameterException
 from msi_models.stimset.channel import Channel
 from msi_models.stimset.channel import ChannelConfig
-from datetime import datetime
+
+
+os.sep = '/'
 
 
 class MultiChannelConfig(BaseModel):
+    """
+    Config for multiple input channel models, with 2 main outputs.
+
+    :param path: Path to hdf5 file containing y_keys.
+    :param key: Root key to use to access y_keys. eg. 'agg', 'left', 'right'.
+    :param y_keys: The keys for the aggregate/overall y_rate and y_dec that will be used for training the model.
+                   Suffixed to key param.
+    :param channels: List of ChannelConfigs specifying the x_data for each channel, and also the single channel y_data
+                     (if needed).
+    :param seed: Int specifying a numpy seed. All channels will be set to this seed so that train/test splitting will be
+                 consistent.
+    """
+    path: FilePath
+    key: str = 'agg/'
+    y_keys: List[str]
     channels: List[ChannelConfig]
     seed: Union[PositiveInt] = None
 
@@ -41,12 +60,33 @@ class MultiChannelConfig(BaseModel):
 
         return values
 
+    @root_validator
+    def y_keys_exist_and_match_len(cls, values):
+        """Check file path's aggregate y values."""
+        with h5py.File(values['path'], 'r') as f:
+            key = "/" if values["key"] == "" else values["key"]
+            keys = list(f[key].keys())
+
+        if not np.all([v in keys for v in values["y_keys"]]):
+            raise InvalidParameterException(f"Some of y_keys ({values['y_keys']}) missing from file keys ({keys})")
+
+        return values
+
 
 class MultiChannel:
     def __init__(self, config: MultiChannelConfig):
         self.config = config
+        # Create channels to get individual channel x and y data
         self.channels = [Channel(config) for config in self.config.channels]
+        # Create a new channel to get the main y keys, wherever they are.
+        self.y_channel = Channel(ChannelConfig(path=self.config.path,
+                                               seed=self.config.seed,
+                                               key=self.config.key,
+                                               y_keys=self.config.y_keys))
+
         self.n = self.channels[0].n
+
+        self.y_keys = [os.path.join(self.config.key, k) for k in self.config.y_keys]
 
     @property
     def x(self):
@@ -57,32 +97,41 @@ class MultiChannel:
 
     @property
     def y(self):
-        return {'y_dec': self.channels[0].y["left_y_dec"],
-                'y_rate': self.channels[0].y["left_y_rate"]}
+        ys = {}
+        for c in [self.y_channel] + self.channels:
+            ys.update(c.y)
+
+        return ys
 
     @property
     def x_train(self):
         x = {}
         for c in self.channels:
-            x.update(c.x_train.items())
+            x.update(c.x_train)
         return x
 
     @property
     def x_test(self):
         x = {}
         for c in self.channels:
-            x.update(c.x_test.items())
+            x.update(c.x_test)
         return x
 
     @property
     def y_train(self):
-        return {'y_dec': self.channels[0].y_train["left_y_dec"],
-                'y_rate': self.channels[0].y_train["left_y_rate"]}
+        ys = {}
+        for c in [self.y_channel] + self.channels:
+            ys.update(c.y_train)
+
+        return ys
 
     @property
     def y_test(self):
-        return {'y_dec': self.channels[0].y_test["left_y_dec"],
-                'y_rate': self.channels[0].y_test["left_y_rate"]}
+        ys = {}
+        for c in [self.y_channel] + self.channels:
+            ys.update(c.y_test)
+
+        return ys
 
     def plot_example(self,
                      show: bool = True):

@@ -50,7 +50,7 @@ if __name__ == "__main__":
             shuffle=True,
             validation_split=0.2,
             batch_size=2000,
-            epochs=self.epochs,
+            epochs=mod.epochs,
             verbose=2)
 
     print("preds")

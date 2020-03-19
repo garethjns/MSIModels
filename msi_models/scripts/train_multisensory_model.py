@@ -23,9 +23,10 @@ if __name__ == "__main__":
     mc.plot_example()
 
     exp_model = ExperimentalModel(data=mc,
-                                  model=MultisensoryClassifier(opt='adam',
+                                  model=MultisensoryClassifier(integration_type='intermediate_integration',
+                                                               opt='adam',
                                                                epochs=1000,
-                                                               batch_size=2500,
+                                                               batch_size=2000,
                                                                lr=0.0025))
     exp_model.fit()
     exp_model.evaluate()

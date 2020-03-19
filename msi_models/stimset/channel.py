@@ -1,3 +1,4 @@
+import os
 from typing import List, Dict, Union
 
 import h5py
@@ -9,9 +10,21 @@ from msi_models.exceptions.params import InvalidParameterException
 
 
 class ChannelConfig(BaseModel):
+    """
+    Config for an individual channel containing the x data and y data.
+
+    :param path: Path to hdf5 file containing x_keys and y_keys.
+    :param y_keys: The keys for x inputs (currently supported: x, x_mask)
+    :param y_keys: The keys for the y_rate and y_dec.
+    :param key: Root key to use to get the other keys. If file contains one channel, this can be empty '' or '/'. If the
+                file contains more than a single channel, use this key to specific which to laod, eg 'left/' or
+                'right/'.
+    :param seed: Int specifying a numpy seed. Used for the train/test split
+    :param train_prop: Train proportion for train/test split. Remaining data will be kept for testing.
+    """
     path: FilePath
-    x_keys: List[str]
-    y_keys: List[str]
+    x_keys: List[str] = []
+    y_keys: List[str] = []
     key: str = ''
     seed: int = 0
     train_prop: float = 0.8
@@ -35,8 +48,8 @@ class ChannelConfig(BaseModel):
 class Channel:
     def __init__(self, channel_config: ChannelConfig):
         self.config = channel_config
-        self.x_keys = ["/".join([self.config.key, k]).strip('/') for k in self.config.x_keys]
-        self.y_keys = ["/".join([self.config.key, k]).strip('/') for k in self.config.y_keys]
+        self.x_keys = [os.path.join(self.config.key, k).replace('\\', '/') for k in self.config.x_keys]
+        self.y_keys = [os.path.join(self.config.key, k).replace('\\', '/') for k in self.config.y_keys]
 
         with h5py.File(self.config.path, 'r') as f:
             self.n: int = f[self.y_keys[0]].shape[0]
@@ -45,6 +58,8 @@ class Channel:
         self._y: Dict[str, np.ndarray] = None
         self.train_idx: np.ndarray = None
         self.test_idx: np.ndarray = None
+
+        self._split()
 
     def _load(self, keys: Union[List[str], str]) -> Dict[str, np.ndarray]:
         if not isinstance(keys, list):
@@ -87,22 +102,18 @@ class Channel:
 
     @property
     def x_train(self):
-        self._split()
         return {k: v[self.train_idx] for k, v in self.x.items()}
 
     @property
     def x_test(self):
-        self._split()
         return {k: v[self.test_idx] for k, v in self.x.items()}
 
     @property
     def y_train(self):
-        self._split()
         return {k: v[self.train_idx] for k, v in self.y.items()}
 
     @property
     def y_test(self):
-        self._split()
         return {k: v[self.test_idx] for k, v in self.y.items()}
 
     def plot_example(self,
