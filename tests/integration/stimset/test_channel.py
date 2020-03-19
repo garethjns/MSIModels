@@ -147,8 +147,8 @@ class TestChannel(unittest.TestCase):
 
     def test_channel_gets_y_train_correctly_smaller_train_prop(self):
         # Arrange
-        channel = self._sut(self._mock_config)
         self._mock_config.train_prop = 0.2
+        channel = self._sut(self._mock_config)
 
         # Act
         y_test = channel.y_train
@@ -161,8 +161,8 @@ class TestChannel(unittest.TestCase):
 
     def test_channel_gets_y_test_correctly_smaller_train_prop(self):
         # Arrange
-        channel = self._sut(self._mock_config)
         self._mock_config.train_prop = 0.2
+        channel = self._sut(self._mock_config)
 
         # Act
         y_test = channel.y_test

@@ -1,11 +1,13 @@
+import copy
 import unittest
 from unittest.mock import MagicMock
-import copy
-from msi_models.exceptions.params import InvalidParameterException, IncompatibleParametersException
+
+import numpy as np
+
+from msi_models.exceptions.params import IncompatibleParametersException
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannel, MultiChannelConfig
 from tests.common.fixtures.data_fixtures import MultisensoryDataFixture
-import numpy as np
 
 
 class TestMultiChannelConfig(unittest.TestCase):
@@ -38,7 +40,9 @@ class TestMultiChannelConfig(unittest.TestCase):
 
     def test_valid_config_survives_pydantic_validation(self):
         # Act
-        multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right])
+        multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
+                                 path=self._data_fixture.path,
+                                 y_keys=['y_rate', 'y_dec'])
 
         # Assert
         self.assertIsInstance(multi_config, MultiChannelConfig)
@@ -60,11 +64,15 @@ class TestMultiChannelConfig(unittest.TestCase):
 
         # Actsert
         self.assertRaises(IncompatibleParametersException,
-                          lambda: self._sut(channels=[left_config, right_config]))
+                          lambda: self._sut(channels=[left_config, right_config],
+                                            path=self._data_fixture.path,
+                                            y_keys=['y_rate', 'y_dec']))
 
     def test_unspecified_seed_is_set_to_int(self):
         # Act
-        multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right])
+        multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
+                                 path=self._data_fixture.path,
+                                 y_keys=['y_rate', 'y_dec'])
 
         # Assert
         self.assertEqual(multi_config.seed, multi_config.channels[0].seed)
@@ -73,7 +81,9 @@ class TestMultiChannelConfig(unittest.TestCase):
     def test_none_seed_is_set_to_int(self):
         # Act
         multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
-                                 seed=None)
+                                 seed=None,
+                                 path=self._data_fixture.path,
+                                 y_keys=['y_rate', 'y_dec'])
 
         # Assert
         self.assertEqual(multi_config.seed, multi_config.channels[0].seed)
@@ -85,7 +95,9 @@ class TestMultiChannelConfig(unittest.TestCase):
 
         # Act
         multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
-                                 seed=seed)
+                                 seed=seed,
+                                 path=self._data_fixture.path,
+                                 y_keys=['y_rate', 'y_dec'])
 
         # Assert
         self.assertEqual(seed, multi_config.seed)
@@ -102,6 +114,7 @@ class TestMultiChannel(unittest.TestCase):
         cls._data_fixture.save()
 
     def setUp(self):
+        # For single chans
         common_kwargs = {"path": self._data_fixture.path,
                          "train_prop": 0.8,
                          "x_keys": ["x", "x_mask"],
@@ -111,7 +124,9 @@ class TestMultiChannel(unittest.TestCase):
         left_config = ChannelConfig(key='left', **common_kwargs)
         right_config = ChannelConfig(key='right', **common_kwargs)
 
-        self.multi_config = MultiChannelConfig(channels=[left_config, right_config])
+        self.multi_config = MultiChannelConfig(channels=[left_config, right_config],
+                                               path=self._data_fixture.path,
+                                               y_keys=['y_rate', 'y_dec'])
 
     @classmethod
     def tearDownClass(cls):
@@ -130,15 +145,17 @@ class TestMultiChannel(unittest.TestCase):
 
         # Assert
         self.assertEqual(multi_channel.channels[0].config.seed, multi_channel.channels[1].config.seed)
+        self.assertEqual(multi_channel.channels[0].config.seed, multi_channel.y_channel.config.seed)
 
     def test_train_and_test_indexes_match_between_channels(self):
         # Act
         multi_channel = self._sut(self.multi_config)
-        _ = multi_channel.x_train
 
         # Assert
         self.assertListEqual(list(multi_channel.channels[0].train_idx),
                              list(multi_channel.channels[1].train_idx))
+        self.assertListEqual(list(multi_channel.channels[0].train_idx),
+                             list(multi_channel.y_channel.train_idx))
 
     def test_channel_gets_xs_correctly(self):
         # Arrange
@@ -164,9 +181,14 @@ class TestMultiChannel(unittest.TestCase):
 
         # Assert
         self.assertIsInstance(y, dict)
-        self.assertListEqual(['y_dec', 'y_rate'], list(y.keys()))
-        self.assertEqual((3,), y['y_rate'].shape)
-        self.assertEqual((3,), y['y_dec'].shape)
+        self.assertListEqual(['agg_y_rate', 'agg_y_dec', 'left_y_rate', 'left_y_dec', 'right_y_rate', 'right_y_dec'],
+                             list(y.keys()))
+        self.assertEqual((3,), y['agg_y_rate'].shape)
+        self.assertEqual((3,), y['agg_y_dec'].shape)
+        self.assertEqual((3,), y['left_y_rate'].shape)
+        self.assertEqual((3,), y['left_y_dec'].shape)
+        self.assertEqual((3,), y['right_y_rate'].shape)
+        self.assertEqual((3,), y['right_y_dec'].shape)
 
     def test_channel_gets_xs_train_correctly(self):
         # Arrange
@@ -195,9 +217,14 @@ class TestMultiChannel(unittest.TestCase):
 
         # Assert
         self.assertIsInstance(y, dict)
-        self.assertListEqual(['y_dec', 'y_rate'], list(y.keys()))
-        self.assertEqual((2,), y['y_rate'].shape)
-        self.assertEqual((2,), y['y_dec'].shape)
+        self.assertListEqual(['agg_y_rate', 'agg_y_dec', 'left_y_rate', 'left_y_dec', 'right_y_rate', 'right_y_dec'],
+                             list(y.keys()))
+        self.assertEqual((2,), y['agg_y_rate'].shape)
+        self.assertEqual((2,), y['agg_y_dec'].shape)
+        self.assertEqual((2,), y['left_y_rate'].shape)
+        self.assertEqual((2,), y['left_y_dec'].shape)
+        self.assertEqual((2,), y['right_y_rate'].shape)
+        self.assertEqual((2,), y['right_y_dec'].shape)
 
     def test_channel_gets_xs_test_correctly(self):
         # Arrange
@@ -226,6 +253,11 @@ class TestMultiChannel(unittest.TestCase):
 
         # Assert
         self.assertIsInstance(y, dict)
-        self.assertListEqual(['y_dec', 'y_rate'], list(y.keys()))
-        self.assertEqual((1,), y['y_rate'].shape)
-        self.assertEqual((1,), y['y_dec'].shape)
+        self.assertListEqual(['agg_y_rate', 'agg_y_dec', 'left_y_rate', 'left_y_dec', 'right_y_rate', 'right_y_dec'],
+                             list(y.keys()))
+        self.assertEqual((1,), y['agg_y_rate'].shape)
+        self.assertEqual((1,), y['agg_y_dec'].shape)
+        self.assertEqual((1,), y['left_y_rate'].shape)
+        self.assertEqual((1,), y['left_y_dec'].shape)
+        self.assertEqual((1,), y['right_y_rate'].shape)
+        self.assertEqual((1,), y['right_y_dec'].shape)
