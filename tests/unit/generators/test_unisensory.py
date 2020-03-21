@@ -21,7 +21,7 @@ class TestUnisensoryBinary(unittest.TestCase):
         self.assertEqual(1, len(x.values()))
         x_ = list(x.values())[0]
         self.assertIsInstance(x_, np.ndarray)
-        self.assertEqual((2, 512, 1), x_.shape)
+        self.assertEqual((2, 665, 1), x_.shape)
 
         self.assertIsInstance(y, dict)
         self.assertEqual(2, len(y.values()))

@@ -10,7 +10,8 @@ from msi_models.stim.two_gap.two_gap_templates import template_sine_events
 
 def unisensory_binary(n: PositiveInt = 2,
                       fs: PositiveInt = 512,
-                      duration: PositiveInt = 1000,
+                      duration: PositiveInt = 1300,
+                      duration_tol: float = 0.5,
                       events: List[int] = None):
     while True:
 
@@ -29,6 +30,7 @@ def unisensory_binary(n: PositiveInt = 2,
             y_dec[n_i, int(n_events >= events_mean)] = 1
 
             params = template_sine_events(duration=duration,
+                                          duration_tol=duration_tol,
                                           fs=fs)
             x[n_i, :] = TwoGapStim(params).y.y
 
