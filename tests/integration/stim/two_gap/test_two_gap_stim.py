@@ -1,6 +1,8 @@
 import copy
 import unittest
 
+import numpy as np
+
 from msi_models.stim.two_gap.two_gap_stim import TwoGapStim
 from msi_models.stim.two_gap.two_gap_templates import template_sine_events, template_noisy_sine_events
 
@@ -60,9 +62,9 @@ class TestTwoGapStim(unittest.TestCase):
 
         self.assertTrue(stim.params.cache)
         for y1, y2 in zip(y_first_call, y_second_call):
-            self.assertAlmostEqual(y1, y2, 2)
+            self.assertAlmostEqual(y1, y2, 7)
         for y1, y2 in zip(y_mask_first_call, y_mask_second_call):
-            self.assertAlmostEqual(y1, y2, 2)
+            self.assertAlmostEqual(y1, y2, 7)
 
     def test_uncached_stim_returns_consistent_ys(self):
         stim = self._sut(template_sine_events(cache=False))
@@ -72,8 +74,9 @@ class TestTwoGapStim(unittest.TestCase):
         y_mask_first_call = copy.copy(stim.y_mask.y)
         y_mask_second_call = copy.copy(stim.y_mask.y)
 
+        # Event and background noise will differ
         self.assertFalse(stim.params.cache)
-        for y1, y2 in zip(y_first_call, y_second_call):
+        for y1, y2 in zip(np.abs(y_first_call), np.abs(y_second_call)):
             self.assertAlmostEqual(y1, y2, 1)
         for y1, y2 in zip(y_mask_first_call, y_mask_second_call):
-            self.assertAlmostEqual(y1, y2, 1)
+            self.assertAlmostEqual(y1, y2, 7)

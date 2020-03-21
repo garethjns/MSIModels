@@ -103,10 +103,10 @@ class TwoGapStim(Seeded):
 
         # Pick a start cursor so the active duration is randomly placed entirely inside total duration
         available_pts = self.params.duration - self.active_duration_
-        if available_pts < 1:
+        if available_pts < 0:
             raise IncompatibleParametersException(f"Active duration ({self.active_duration_}) is too long: "
                                                   f"Is > duration ({self.params.duration})")
-        cursor = self.state.randint(available_pts)
+        cursor = self.state.randint(available_pts) if available_pts > 0 else 0
 
         # Generate actual events with now-known start times. Also make make indicating event locations.
         evs = [self.params.background(start=0)]

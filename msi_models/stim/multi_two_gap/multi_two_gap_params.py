@@ -48,7 +48,6 @@ class MultiTwoGapParams(BaseModel):
     validate_as_sync: Union[bool, None] = None
     validate_as_matched: Union[bool, None] = None
 
-
     class Config:
         """Allow setting of partial type."""
         arbitrary_types_allowed = True
@@ -101,7 +100,7 @@ class MultiTwoGapParams(BaseModel):
             lens.append(len(values[k]))
 
         if len(np.unique(lens)) > 1:
-            raise IncompatibleParametersException(f"Number if expected channels differs between fields.")
+            raise IncompatibleParametersException(f"Number of expected channels differs between fields.")
 
         return values
 

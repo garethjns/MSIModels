@@ -7,13 +7,15 @@ from msi_models.models.generators.unisensory import unisensory_binary
 
 
 class TestUnisensoryBinary(unittest.TestCase):
-    _sut = unisensory_binary()
 
     def test_is_generator(self):
-        self.assertIsInstance(self._sut, Generator)
+        gen = unisensory_binary()
+
+        self.assertIsInstance(gen, Generator)
 
     def test_defaults_return_expected_shapes(self):
-        x, y = next(self._sut)
+        gen = unisensory_binary()
+        x, y = next(gen)
 
         self.assertIsInstance(x, dict)
         self.assertEqual(1, len(x.values()))
@@ -28,11 +30,11 @@ class TestUnisensoryBinary(unittest.TestCase):
         self.assertEqual((2,), y_.shape)
 
     def test_alternates_return_expected_shapes(self):
-
-        x, y = next(unisensory_binary(n=3,
-                                      events=10,
-                                      duration=1100,
-                                      fs=1200))
+        gen = unisensory_binary(n=3,
+                                events=10,
+                                duration=1100,
+                                fs=1200)
+        x, y = next(gen)
 
         self.assertIsInstance(x, dict)
         self.assertEqual(1, len(x.values()))
