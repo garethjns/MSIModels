@@ -82,10 +82,10 @@ class TwoGapStim(Seeded):
         """
 
         # Pick a valid combination of events
-        self.pool_ = self.gap_ns_[np.random.randint(0, len(self.gap_ns_))]
+        self.pool_ = self.gap_ns_[self.state.randint(0, len(self.gap_ns_))]
         # Create the gaps and shuffle order
         gap_list = [self.params.gap_1] * self.pool_[0] + [self.params.gap_2] * self.pool_[1]
-        np.random.shuffle(gap_list)
+        self.state.shuffle(gap_list)
 
         # Create the events and zip with gaps so [gap_x, event, gap_x, event ... gap_x]
         event_list = [self.params.event] * self.params.n_events
@@ -102,7 +102,11 @@ class TwoGapStim(Seeded):
         """
 
         # Pick a start cursor so the active duration is randomly placed entirely inside total duration
-        cursor = np.random.randint(self.params.duration - self.active_duration_)
+        available_pts = self.params.duration - self.active_duration_
+        if available_pts < 1:
+            raise IncompatibleParametersException(f"Active duration ({self.active_duration_}) is too long: "
+                                                  f"Is > duration ({self.params.duration})")
+        cursor = self.state.randint(available_pts)
 
         # Generate actual events with now-known start times. Also make make indicating event locations.
         evs = [self.params.background(start=0)]
@@ -208,7 +212,7 @@ if __name__ == "__main__":
     from msi_models.stim.two_gap.two_gap_templates import template_sine_events, template_noisy_sine_events
 
     # Example stim:
-    stim = TwoGapStim(template_sine_events())
+    stim = TwoGapStim(template_sine_events(cache=True))
     stim.y.plot(show=False)
     stim.y_mask.plot(show=True)
 

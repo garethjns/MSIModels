@@ -1,7 +1,6 @@
-import numpy as np
-
 from typing import Union
-from audiodag.signal.components.component import CompoundComponent
+
+import numpy as np
 
 
 class Seeded:

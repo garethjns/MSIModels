@@ -18,12 +18,13 @@ def _noise_gaps(gap_1_duration: PositiveInt = 25,
     return gap_1, gap_2
 
 
-def template_sine_events(duration: PositiveInt = 1000,
-                         n_events: PositiveInt = 10,
+def template_sine_events(duration: PositiveInt = 1300,
+                         n_events: PositiveInt = 13,
                          fs: PositiveInt = 1000,
                          gap_1_duration: PositiveInt = 25,
                          gap_2_duration: PositiveInt = 50,
                          background_mag: float = 0.02,
+                         duration_tol: float = 0.5,
                          **kwargs) -> "TwoGapParams":
     """This example has an SineComponent event."""
     event = partial(SineComponent, duration=gap_1_duration, freq=2, fs=fs, mag=2)
@@ -33,15 +34,16 @@ def template_sine_events(duration: PositiveInt = 1000,
                          envelope=partial(CosRiseEnvelope, rise=20))
 
     return TwoGapParams(duration=duration, n_events=n_events, event=event, gap_1=gap_1, gap_2=gap_2,
-                        background=background, background_weight=2, **kwargs)
+                        background=background, background_weight=2, duration_tol=duration_tol, **kwargs)
 
 
-def template_noisy_sine_events(duration: PositiveInt = 1000,
-                               n_events: PositiveInt = 10,
+def template_noisy_sine_events(duration: PositiveInt = 1300,
+                               n_events: PositiveInt = 13,
                                fs: PositiveInt = 1000,
                                gap_1_duration: PositiveInt = 25,
                                gap_2_duration: PositiveInt = 50,
                                background_mag: float = 0.02,
+                               duration_tol: float=0.5,
                                **kwargs) -> "TwoGapParams":
     """This example has an CompoundComponent event that comprises a sine component and a noise component."""
 
@@ -55,4 +57,4 @@ def template_noisy_sine_events(duration: PositiveInt = 1000,
                          envelope=partial(CosRiseEnvelope, rise=20))
 
     return TwoGapParams(duration=duration, n_events=n_events, event=event, gap_1=gap_1, gap_2=gap_2,
-                        background=background, background_weight=2, **kwargs)
+                        background=background, background_weight=2, duration_tol=duration_tol, **kwargs)

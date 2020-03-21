@@ -30,14 +30,15 @@ class TestUnisensoryBinary(unittest.TestCase):
     def test_alternates_return_expected_shapes(self):
 
         x, y = next(unisensory_binary(n=3,
-                                      duration=900,
+                                      events=10,
+                                      duration=1100,
                                       fs=1200))
 
         self.assertIsInstance(x, dict)
         self.assertEqual(1, len(x.values()))
         x_ = list(x.values())[0]
         self.assertIsInstance(x_, np.ndarray)
-        self.assertEqual((3, 1080, 1), x_.shape)
+        self.assertEqual((3, 1320, 1), x_.shape)
 
         self.assertIsInstance(y, dict)
         self.assertEqual(2, len(y.values()))

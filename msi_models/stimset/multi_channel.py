@@ -147,7 +147,8 @@ class MultiChannel:
 
 
 if __name__ == "__main__":
-    common_kwargs = {"path": "data/multisensory_data.hdf5",
+    path = "data/multisensory_data_matched.hdf5"
+    common_kwargs = {"path": path,
                      "train_prop": 0.8,
                      "x_keys": ["x", "x_mask"],
                      "y_keys": ["y_rate", "y_dec"],
@@ -156,7 +157,10 @@ if __name__ == "__main__":
     left_config = ChannelConfig(key='left', **common_kwargs)
     right_config = ChannelConfig(key='right', **common_kwargs)
 
-    multi_config = MultiChannelConfig(channels=[left_config, right_config])
+    multi_config = MultiChannelConfig(path=path,
+                                      key='agg',
+                                      y_keys=["y_rate", "y_dec"],
+                                      channels=[left_config, right_config])
 
     mc = MultiChannel(multi_config)
 

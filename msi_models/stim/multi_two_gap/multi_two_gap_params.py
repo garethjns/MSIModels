@@ -22,8 +22,6 @@ class MultiTwoGapParams(BaseModel):
     All params can either be single value (common between channels) or list in order [c1, c2].
     """
     # Multi event params
-    validate_as_sync: Union[bool, None] = None
-    validate_as_matched: Union[bool, None] = None
     n_channels: int = 2
     # Individual event params
     event: Union[Union[partial, Callable],
@@ -46,6 +44,10 @@ class MultiTwoGapParams(BaseModel):
                  List[bool]]
     duration_tol: Union[float,
                         List[float]]
+    # Optional validators
+    validate_as_sync: Union[bool, None] = None
+    validate_as_matched: Union[bool, None] = None
+
 
     class Config:
         """Allow setting of partial type."""

@@ -1,3 +1,5 @@
 ipython
 coverage
 jupyterlab
+flake8
+pytest
