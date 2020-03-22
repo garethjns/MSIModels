@@ -3,6 +3,7 @@ import os
 from msi_models.stim.multi_two_gap.multi_two_gap_templates import template_sync, template_unmatched, template_matched
 
 N = 5000
+N_JOBS = 3
 
 
 if __name__ == "__main__":
@@ -14,7 +15,7 @@ if __name__ == "__main__":
                                  n=N,
                                  batch_size=2,
                                  fn=fn,
-                                 n_jobs=-2,
+                                 n_jobs=N_JOBS,
                                  template_kwargs={"duration": 1300,
                                                   "background_mag": 0.09,
                                                   "duration_tol": 0.5})
@@ -26,7 +27,7 @@ if __name__ == "__main__":
                                  n=N,
                                  batch_size=4,
                                  fn=fn,
-                                 n_jobs=-2,
+                                 n_jobs=N_JOBS,
                                  template_kwargs={"duration": 1300,
                                                   "background_mag": 0.09,
                                                   "duration_tol": 0.5})
@@ -38,7 +39,7 @@ if __name__ == "__main__":
                                  n=N,
                                  batch_size=4,
                                  fn=fn,
-                                 n_jobs=-2,
+                                 n_jobs=N_JOBS,
                                  template_kwargs={"duration": 1300,
                                                   "background_mag": 0.09,
                                                   "duration_tol": 0.5})

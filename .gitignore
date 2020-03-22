@@ -1,4 +1,6 @@
 .idea/
+mlruns/
+scripts/mlruns/
 
 # Windows image file caches
 Thumbs.db
@@ -60,3 +62,4 @@ old/Models
 Network Trash Folder
 Temporary Items
 .apdisk
+/mlruns/

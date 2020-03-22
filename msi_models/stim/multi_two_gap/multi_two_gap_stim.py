@@ -5,7 +5,6 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from audiodag.signal.digital.conversion import ms_to_pts
-from audiodag.signal.components.component import CompoundComponent
 from joblib import Parallel, delayed
 from pydantic import PositiveInt
 from tqdm import tqdm
@@ -125,20 +124,30 @@ class MultiTwoGapStim:
         events_mean = np.mean(events)
         example_params = template(fs=fs, **template_kwargs)
 
-        left_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[0], fs)))
-        left_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[0], fs)))
+        left_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[0], fs)),
+                                     dtype=np.float32)
+        left_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[0], fs)),
+                          dtype=np.float32)
         left_configs = []
-        left_y_rate = np.zeros(shape=(n,))
-        left_y_dec = np.zeros(shape=(n, 2))
+        left_y_rate = np.zeros(shape=(n,),
+                               dtype=np.uint16)
+        left_y_dec = np.zeros(shape=(n, 2),
+                              dtype=np.float32)
 
-        right_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)))
-        right_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)))
+        right_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)),
+                                      dtype=np.float32)
+        right_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)),
+                           dtype=np.float32)
         right_configs = []
-        right_y_dec = np.zeros(shape=(n, 2))
-        right_y_rate = np.zeros(shape=(n,))
+        right_y_dec = np.zeros(shape=(n, 2),
+                               dtype=np.float32)
+        right_y_rate = np.zeros(shape=(n,),
+                                dtype=np.uint16)
 
-        agg_y_dec = np.zeros(shape=(n, 2))
-        agg_y_rate = np.zeros(shape=(n,))
+        agg_y_dec = np.zeros(shape=(n, 2),
+                             dtype=np.float32)
+        agg_y_rate = np.zeros(shape=(n,),
+                              dtype=np.uint16)
 
         for n_i in range(n):
             multi_stim = MultiTwoGapStim(template(fs=fs, **template_kwargs))

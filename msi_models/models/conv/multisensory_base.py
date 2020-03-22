@@ -1,10 +1,10 @@
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from msi_models.models.keras_sk_base import KerasSKBasel
+from msi_models.models.keras_sk_base import KerasSKBase
 
 
-class MultisensoryBase(KerasSKBasel):
+class MultisensoryBase(KerasSKBase):
     _loss = {"left_conv_1": "mse",
              "left_flatten_1": "mse",
              "left_rate_output": "mse",
@@ -19,9 +19,9 @@ class MultisensoryBase(KerasSKBasel):
                      "right_rate_output": 0,
                      "right_conv_1": 0,
                      "right_flatten_1": 0,
-                     "y_dec": 0.5,
-                     "y_rate": 0.5}
-    _metrics = {"y_dec": ['accuracy']}
+                     "agg_y_dec": 0.5,
+                     "agg_y_rate": 0.5}
+    _metrics = {"agg_y_dec": ['accuracy']}
 
     def __init__(self,
                  integration_type: str = 'early_integration',
@@ -99,12 +99,12 @@ class MultisensoryBase(KerasSKBasel):
                             name="fc_2")(drop_2)
 
         agg_rate_output = layers.Dense(1,
-                                   activation='relu',
-                                   name='agg_y_rate')(fc_2)
+                                       activation='relu',
+                                       name='agg_y_rate')(fc_2)
 
         agg_dec_output = layers.Dense(2,
-                                  activation='softmax',
-                                  name="agg_y_dec")(fc_2)
+                                      activation='softmax',
+                                      name="agg_y_dec")(fc_2)
 
         self.model = keras.Model(inputs=[left_x, right_x],
                                  outputs=[agg_rate_output, agg_dec_output,
@@ -162,12 +162,12 @@ class MultisensoryBase(KerasSKBasel):
                             name="fc_2")(drop_2)
 
         agg_rate_output = layers.Dense(1,
-                                   activation='relu',
-                                   name='y_rate')(fc_2)
+                                       activation='relu',
+                                       name='agg_y_rate')(fc_2)
 
         agg_dec_output = layers.Dense(2,
-                                  activation='softmax',
-                                  name="y_dec")(fc_2)
+                                      activation='softmax',
+                                      name="agg_y_dec")(fc_2)
 
         self.model = keras.Model(inputs=[left_x, right_x],
                                  outputs=[agg_rate_output, agg_dec_output,
@@ -227,12 +227,12 @@ class MultisensoryBase(KerasSKBasel):
                             name="fc_2")(drop_2)
 
         agg_rate_output = layers.Dense(1,
-                                   activation='relu',
-                                   name='agg_y_rate')(fc_2)
+                                       activation='relu',
+                                       name='agg_y_rate')(fc_2)
 
         agg_dec_output = layers.Dense(2,
-                                  activation='softmax',
-                                  name="agg_y_dec")(fc_2)
+                                      activation='softmax',
+                                      name="agg_y_dec")(fc_2)
 
         self.model = keras.Model(inputs=[left_x, right_x],
                                  outputs=[agg_rate_output, agg_dec_output,

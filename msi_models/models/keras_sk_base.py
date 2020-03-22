@@ -2,12 +2,13 @@ import abc
 from typing import Dict, List
 
 import numpy as np
+import tensorflow as tf
 from sklearn.base import BaseEstimator
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow_core.python.keras.api._v2 import keras
 
 
-class KerasSKBasel(abc.ABC, BaseEstimator):
+class KerasSKBase(abc.ABC, BaseEstimator):
     _loss: Dict[str, str]
     _loss_weights: Dict[str, float]
     _metrics: Dict[str, str]
@@ -63,7 +64,9 @@ class KerasSKBasel(abc.ABC, BaseEstimator):
                            patience=self.es_patience)
 
         self.model.fit(*args,
-                       callbacks=[es], **kwargs, )
+                       callbacks=[es], **kwargs)
+
+        tf.keras.backend.clear_session()
 
     def predict(self, x) -> List[np.ndarray]:
         """NB: Not sklearn compatible atm."""
@@ -71,7 +74,11 @@ class KerasSKBasel(abc.ABC, BaseEstimator):
         if not isinstance(preds, list):
             preds = [preds]
 
-        return [p.numpy() for p in preds]
+        p_numpy = [p.numpy() for p in preds]
+
+        tf.keras.backend.clear_session()
+
+        return p_numpy
 
     def predict_dict(self, x) -> Dict:
         return {k: v for k, v in zip(self.model.output_names, self.predict(x))}

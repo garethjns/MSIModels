@@ -86,7 +86,7 @@ class MultiChannel:
 
         self.n = self.channels[0].n
 
-        self.y_keys = [os.path.join(self.config.key, k) for k in self.config.y_keys]
+        self.y_keys = [os.path.join(self.config.key, k).replace('\\', '/') for k in self.config.y_keys]
 
     @property
     def x(self):

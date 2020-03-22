@@ -12,3 +12,4 @@ joblib
 tables
 tqdm
 scikit-learn
+mlflow

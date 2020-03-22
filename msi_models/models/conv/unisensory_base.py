@@ -1,11 +1,11 @@
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from msi_models.models.keras_sk_base import KerasSKBasel
+from msi_models.models.keras_sk_base import KerasSKBase
 from msi_models.stimset.channel import Channel
 
 
-class UnisensoryBase(KerasSKBasel):
+class UnisensoryBase(KerasSKBase):
     _loss = {"conv_1": "mse",
              "conv_2": "mse",
              "flatten_1": "mse",
