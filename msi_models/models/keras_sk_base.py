@@ -32,6 +32,8 @@ class KerasSKBase(abc.ABC, BaseEstimator):
         pass
 
     def plot_dag(self):
+        if self.model is None:
+            self.build_model()
         keras.utils.plot_model(self.model, 'mod.png')
 
     def __str__(self):
@@ -64,6 +66,7 @@ class KerasSKBase(abc.ABC, BaseEstimator):
                            patience=self.es_patience)
 
         self.model.fit(*args,
+                       batch_size=self.batch_size,
                        callbacks=[es], **kwargs)
 
         tf.keras.backend.clear_session()

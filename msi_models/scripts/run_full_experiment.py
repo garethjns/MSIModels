@@ -16,9 +16,9 @@ if __name__ == "__main__":
                           "y_keys": ["y_rate", "y_dec"],
                           "seed": 100}
 
-    fns = {"multi_sync": "data/multisensory_data_sync.hdf5",
-           "multi_matched": "data/multisensory_data_matched.hdf5",
-           "multi_unmatched": "data/multisensory_data_unmatched.hdf5"}
+    fns = {"multi_sync": "data/sample_multisensory_data_sync.hdf5",
+           "multi_matched": "data/sample_multisensory_data_matched.hdf5",
+           "multi_unmatched": "data/sample_multisensory_data_unmatched.hdf5"}
 
     exp_datasets = []
     for fk, fn in fns.items():

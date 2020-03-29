@@ -147,7 +147,7 @@ class MultiChannel:
 
 
 if __name__ == "__main__":
-    path = "data/multisensory_data_matched.hdf5"
+    path = "data/sample_multisensory_data_matched.hdf5"
     common_kwargs = {"path": path,
                      "train_prop": 0.8,
                      "x_keys": ["x", "x_mask"],
