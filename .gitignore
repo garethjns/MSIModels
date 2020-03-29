@@ -1,3 +1,7 @@
+.idea/
+mlruns/
+scripts/mlruns/
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
@@ -18,9 +22,9 @@ $RECYCLE.BIN/
 *.lnk
 
 # Folders
-Backups
-Data
-Models
+old/Backups
+old/Data
+old/Models
 /.ipynb_*
 
 # MATLAB
@@ -58,3 +62,4 @@ Models
 Network Trash Folder
 Temporary Items
 .apdisk
+/mlruns/
