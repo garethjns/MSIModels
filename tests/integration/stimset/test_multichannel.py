@@ -205,8 +205,8 @@ class TestMultiChannel(unittest.TestCase):
         self.assertEqual((2, 3, 1), x['right_x'].shape)
         self.assertEqual((2, 3, 1), x['right_x_mask'].shape)
         # Test fixture contains same data on each channel
-        self.assertTrue(np.all(x['left_x'] == x['left_x']))
-        self.assertTrue(np.all(x['left_x_mask'] == x['left_x_mask']))
+        self.assertTrue(np.all(x['left_x'] == x['right_x']))
+        self.assertTrue(np.all(x['left_x_mask'] == x['right_x_mask']))
 
     def test_channel_gets_ys_train_correctly(self):
         # Arrange
@@ -241,8 +241,8 @@ class TestMultiChannel(unittest.TestCase):
         self.assertEqual((1, 3, 1), x['right_x'].shape)
         self.assertEqual((1, 3, 1), x['right_x_mask'].shape)
         # Test fixture contains same data on each channel
-        self.assertTrue(np.all(x['left_x'] == x['left_x']))
-        self.assertTrue(np.all(x['left_x_mask'] == x['left_x_mask']))
+        self.assertTrue(np.all(x['left_x'] == x['right_x']))
+        self.assertTrue(np.all(x['left_x_mask'] == x['right_x_mask']))
 
     def test_channel_gets_ys_test_correctly(self):
         # Arrange
