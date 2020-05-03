@@ -1,7 +1,7 @@
 # Deep multi-sensory integration models
-![Tests](https://github.com/garethjns/MSIModels/workflows/Tests/badge.svg) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=garethjns_AudioDAG&metric=alert_status)](https://sonarcloud.io/dashboard?id=garethjns_AudioDAG)
+![Tests](https://github.com/garethjns/MSIModels/workflows/Tests/badge.svg) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=garethjns_MSIModels&metric=alert_status)](https://sonarcloud.io/dashboard?id=garethjns_MSIModels)
 
-Trying out early and late integration in multi-input neural networks, event detection and rate discrimination.
+Trying out early and late integration in multi-input neural networks, for event detection and rate discrimination.
 
 ## Background
 The human brain integrates incoming information over time, and combines evidence between different sensory modalities. Humans are able to use sensory information in a statistically-optimal fashion; reliable information is weighted as more important than unreliable or noisy information. However, exactly how and where the brain combines modalities is unclear, with multisensory processing occurring early in the cortex in cortices traditionally believed to be unisensory.
