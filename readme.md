@@ -1,5 +1,5 @@
 # Deep multi-sensory integration models
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=garethjns_AudioDAG&metric=alert_status)](https://sonarcloud.io/dashboard?id=garethjns_AudioDAG)
+![Tests](https://github.com/garethjns/MSIModels/workflows/Tests/badge.svg) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=garethjns_AudioDAG&metric=alert_status)](https://sonarcloud.io/dashboard?id=garethjns_AudioDAG)
 
 Trying out early and late integration in multi-input neural networks, event detection and rate discrimination.
 
