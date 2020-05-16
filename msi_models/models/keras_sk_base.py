@@ -4,7 +4,7 @@ from typing import Dict, List
 import numpy as np
 import tensorflow as tf
 from sklearn.base import BaseEstimator
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from tensorflow_core.python.keras.api._v2 import keras
 
 
@@ -64,10 +64,11 @@ class KerasSKBase(abc.ABC, BaseEstimator):
                            mode='min',
                            verbose=2,
                            patience=self.es_patience)
+        tb = TensorBoard(histogram_freq=5)
 
         self.model.fit(*args,
                        batch_size=self.batch_size,
-                       callbacks=[es], **kwargs)
+                       callbacks=[es, tb], **kwargs)
 
         tf.keras.backend.clear_session()
 

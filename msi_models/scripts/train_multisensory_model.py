@@ -2,9 +2,15 @@
 
 import os
 
+import tensorflow as tf
+
 from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
+
+tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
+                                                        [tf.config.experimental.VirtualDeviceConfiguration(
+                                                            memory_limit=4096)])
 
 if __name__ == "__main__":
     fn = "data/sample_multisensory_data_matched.hdf5"
@@ -30,10 +36,9 @@ if __name__ == "__main__":
 
     mod = MultisensoryClassifier(integration_type='intermediate_integration',
                                  opt='adam',
-                                 epochs=1000,
-                                 batch_size=2000,
-                                 lr=0.0025)
+                                 batch_size=50000,
+                                 lr=0.004)
 
     mod.fit(mc.x_train, mc.y_train,
-            validation_split=0.4,
-            epochs=1000)
+            epochs=5000,
+            validation_split=0.4)

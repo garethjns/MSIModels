@@ -26,14 +26,14 @@ class MultisensoryBase(KerasSKBase):
     def __init__(self,
                  integration_type: str = 'early_integration',
                  opt: str = 'adam',
-                 lr: float = 0.0002,
+                 lr: float = 0.0005,
                  epochs: int = 1000,
                  batch_size: int = 2000,
-                 es_patience: int = 100,
+                 es_patience: int = 2000,
                  es_loss: str = 'val_loss',
                  input_length: int = 650,
-                 conv_1_filters: int = 256, conv_1_kernel_size: int = 16, conv_1_activation: str = 'relu',
-                 conv_2_filters: int = 128, conv_2_kernel_size: int = 8, conv_2_activation: str = 'relu',
+                 conv_1_filters: int = 32, conv_1_kernel_size: int = 16, conv_1_activation: str = 'relu',
+                 conv_2_filters: int = 64, conv_2_kernel_size: int = 8, conv_2_activation: str = 'relu',
                  drop_1_prop: float = 0.2,
                  drop_2_prop: float = 0.2,
                  fc_1_units_input_prop: float = 1 / 16, fc_1_activation: str = 'relu',
@@ -56,42 +56,10 @@ class MultisensoryBase(KerasSKBase):
                         fc_1_units_input_prop=fc_1_units_input_prop, fc_1_activation=fc_1_activation,
                         fc_2_units_input_prop=fc_2_units_input_prop, fc_2_activation=fc_2_activation)
 
-    def _early_integration_model(self):
-        left_x = layers.Input(shape=(self.input_length, 1),
-                              name="left_x")
-        left_conv_1 = layers.Conv1D(filters=self.conv_1_filters,
-                                    kernel_size=self.conv_1_kernel_size,
-                                    name="left_conv_1",
-                                    activation=self.conv_1_activation)(left_x)
-        left_flatten_1 = layers.Flatten(name="left_flatten_1")(left_conv_1)
-        left_rate_output = layers.Dense(1,
-                                        activation='relu',
-                                        name='left_rate_output')(left_flatten_1)
-
-        right_x = layers.Input(shape=(self.input_length, 1),
-                               name="right_x")
-        right_conv_1 = layers.Conv1D(filters=self.conv_1_filters,
-                                     kernel_size=self.conv_1_kernel_size,
-                                     name="right_conv_1",
-                                     activation=self.conv_1_activation)(right_x)
-        right_flatten_1 = layers.Flatten(name="right_flatten_1")(right_conv_1)
-        right_rate_output = layers.Dense(1,
-                                         activation='relu',
-                                         name='right_rate_output')(right_flatten_1)
-
-        concat_1 = layers.concatenate(inputs=([left_conv_1, right_conv_1]),
-                                      name='concat_1')
-        # TODO: Added this layer as output to check it's sensible - remove when done
-
-        conv_2 = layers.Conv1D(filters=self.conv_2_filters,
-                               kernel_size=self.conv_2_kernel_size,
-                               name="conv_2",
-                               activation=self.conv_2_activation)(concat_1)
-        drop_1 = layers.Dropout(rate=self.drop_1_prop)(conv_2)
-
+    def _build_head(self, mid_output):
         fc_1 = layers.Dense(int(self.fc_1_units_input_prop * self.input_length),
                             activation=self.fc_1_activation,
-                            name="fc_1")(drop_1)
+                            name="fc_1")(mid_output)
         drop_2 = layers.Dropout(rate=self.drop_2_prop,
                                 name='drop_2')(fc_1)
         fc_2 = layers.Dense(int(self.fc_2_units_input_prop * self.input_length),
@@ -106,22 +74,56 @@ class MultisensoryBase(KerasSKBase):
                                       activation='softmax',
                                       name="agg_y_dec")(fc_2)
 
+        return agg_rate_output, agg_dec_output
+
+    def _build_early_channel(self, side: str):
+        x = layers.Input(shape=(self.input_length, 1),
+                         name=f"{side}_x")
+
+        conv_1 = layers.Conv1D(filters=self.conv_1_filters,
+                               kernel_size=self.conv_1_kernel_size,
+                               name=f"{side}_conv_1",
+                               activation=self.conv_1_activation)(x)
+        max_pool_1 = layers.MaxPooling1D(pool_size=2, name=f"{side}_max_pool_1")(conv_1)
+        flatten_1 = layers.Flatten(name=f"{side}_flatten_1")(max_pool_1)
+
+        rate_output = layers.Dense(1,
+                                   activation='relu',
+                                   name=f'{side}_rate_output')(flatten_1)
+
+        return x, conv_1, max_pool_1, flatten_1, rate_output
+
+    def _early_integration_model(self):
+        (left_x, left_conv_1, left_max_pool_1,
+         left_flatten_1, left_rate_output) = self._build_early_channel(side='left')
+        (right_x, right_conv_1, right_max_pool_1,
+         right_flatten_1, right_rate_output) = self._build_early_channel(side='right')
+
+        concat_1 = layers.concatenate(inputs=([left_conv_1, right_conv_1]),
+                                      name='concat_1')
+        # TODO: Added this layer as output to check it's sensible - remove when done
+
+        conv_2 = layers.Conv1D(filters=self.conv_2_filters,
+                               kernel_size=self.conv_2_kernel_size,
+                               name="conv_2",
+                               activation=self.conv_2_activation)(concat_1)
+        drop_1 = layers.Dropout(rate=self.drop_1_prop)(conv_2)
+
+        agg_rate_output, agg_dec_output = self._build_head(mid_output=drop_1)
+
         self.model = keras.Model(inputs=[left_x, right_x],
                                  outputs=[agg_rate_output, agg_dec_output,
                                           left_conv_1, left_flatten_1,
                                           right_conv_1, right_flatten_1,
-                                          left_rate_output, right_rate_output,
-                                          concat_1],  # TODO: Remove this non-standard when done
+                                          left_rate_output, right_rate_output],
                                  name='multisensory_early')
 
     def _intermediate_integration_model(self):
-        left_x = layers.Input(shape=(self.input_length, 1),
-                              name="left_x")
-        left_conv_1 = layers.Conv1D(filters=self.conv_1_filters,
-                                    kernel_size=self.conv_1_kernel_size,
-                                    name="left_conv_1",
-                                    activation=self.conv_1_activation)(left_x)
-        left_flatten_1 = layers.Flatten(name="left_flatten_1")(left_conv_1)
+        (left_x, left_conv_1, left_max_pool_1,
+         left_flatten_1, left_rate_output) = self._build_early_channel(side='left')
+        (right_x, right_conv_1, right_max_pool_1,
+         right_flatten_1, right_rate_output) = self._build_early_channel(side='right')
+
         left_conv_2 = layers.Conv1D(filters=self.conv_2_filters,
                                     kernel_size=self.conv_2_kernel_size,
                                     name="left_conv_2",
@@ -132,13 +134,6 @@ class MultisensoryBase(KerasSKBase):
                                         name='left_rate_output')(left_flatten_2)
         left_drop_1 = layers.Dropout(rate=self.drop_1_prop)(left_flatten_2)
 
-        right_x = layers.Input(shape=(self.input_length, 1),
-                               name="right_x")
-        right_conv_1 = layers.Conv1D(filters=self.conv_1_filters,
-                                     kernel_size=self.conv_1_kernel_size,
-                                     name="right_conv_1",
-                                     activation=self.conv_1_activation)(right_x)
-        right_flatten_1 = layers.Flatten(name="right_flatten_1")(right_conv_1)
         right_conv_2 = layers.Conv1D(filters=self.conv_2_filters,
                                      kernel_size=self.conv_2_kernel_size,
                                      name="right_conv_2",
@@ -152,22 +147,7 @@ class MultisensoryBase(KerasSKBase):
         concat_1 = layers.concatenate(inputs=[left_drop_1, right_drop_1],
                                       name='concat_1')
 
-        fc_1 = layers.Dense(int(self.fc_1_units_input_prop * self.input_length),
-                            activation=self.fc_1_activation,
-                            name="fc_1")(concat_1)
-        drop_2 = layers.Dropout(rate=self.drop_2_prop,
-                                name='drop_2')(fc_1)
-        fc_2 = layers.Dense(int(self.fc_2_units_input_prop * self.input_length),
-                            activation=self.fc_2_activation,
-                            name="fc_2")(drop_2)
-
-        agg_rate_output = layers.Dense(1,
-                                       activation='relu',
-                                       name='agg_y_rate')(fc_2)
-
-        agg_dec_output = layers.Dense(2,
-                                      activation='softmax',
-                                      name="agg_y_dec")(fc_2)
+        agg_rate_output, agg_dec_output = self._build_head(mid_output=concat_1)
 
         self.model = keras.Model(inputs=[left_x, right_x],
                                  outputs=[agg_rate_output, agg_dec_output,
@@ -177,13 +157,11 @@ class MultisensoryBase(KerasSKBase):
                                  name='multisensory_intermediate')
 
     def _late_integration_model(self):
-        left_x = layers.Input(shape=(self.input_length, 1),
-                              name="left_x")
-        left_conv_1 = layers.Conv1D(filters=self.conv_1_filters,
-                                    kernel_size=self.conv_1_kernel_size,
-                                    name="left_conv_1",
-                                    activation=self.conv_1_activation)(left_x)
-        left_flatten_1 = layers.Flatten(name="left_flatten_1")(left_conv_1)
+        (left_x, left_conv_1, left_max_pool_1,
+         left_flatten_1, left_rate_output) = self._build_early_channel(side='left')
+        (right_x, right_conv_1, right_max_pool_1,
+         right_flatten_1, right_rate_output) = self._build_early_channel(side='right')
+
         left_conv_2 = layers.Conv1D(filters=self.conv_2_filters,
                                     kernel_size=self.conv_2_kernel_size,
                                     name="left_conv_2",
@@ -197,13 +175,6 @@ class MultisensoryBase(KerasSKBase):
                                         activation='relu',
                                         name='left_rate_output')(fc_1_left)
 
-        right_x = layers.Input(shape=(self.input_length, 1),
-                               name="right_x")
-        right_conv_1 = layers.Conv1D(filters=self.conv_1_filters,
-                                     kernel_size=self.conv_1_kernel_size,
-                                     name="right_conv_1",
-                                     activation=self.conv_1_activation)(right_x)
-        right_flatten_1 = layers.Flatten(name="right_flatten_1")(right_conv_1)
         right_conv_2 = layers.Conv1D(filters=self.conv_2_filters,
                                      kernel_size=self.conv_2_kernel_size,
                                      name="right_conv_2",
@@ -220,19 +191,7 @@ class MultisensoryBase(KerasSKBase):
         concat_1 = layers.concatenate(inputs=[fc_1_left, fc_1_right],
                                       name='concat_1')
 
-        drop_2 = layers.Dropout(rate=self.drop_2_prop,
-                                name='drop_2')(concat_1)
-        fc_2 = layers.Dense(int(self.fc_2_units_input_prop * self.input_length),
-                            activation=self.fc_2_activation,
-                            name="fc_2")(drop_2)
-
-        agg_rate_output = layers.Dense(1,
-                                       activation='relu',
-                                       name='agg_y_rate')(fc_2)
-
-        agg_dec_output = layers.Dense(2,
-                                      activation='softmax',
-                                      name="agg_y_dec")(fc_2)
+        agg_rate_output, agg_dec_output = self._build_head(mid_output=concat_1)
 
         self.model = keras.Model(inputs=[left_x, right_x],
                                  outputs=[agg_rate_output, agg_dec_output,
