@@ -1,15 +1,15 @@
-from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
 import os
+
+from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
 from msi_models.stim.multi_two_gap.multi_two_gap_templates import template_sync, template_unmatched, template_matched
 
-N = 100
-N_JOBS = -2
-BATCH_SIZE = 5
-
+N = 250000
+N_JOBS = 26
+BATCH_SIZE = 100
 
 if __name__ == "__main__":
 
-    fn = 'sample_multisensory_data_sync.hdf5'
+    fn = 'data/sample_multisensory_data_sync_250k.hdf5'
     if not os.path.exists(fn):
         MultiTwoGapStim.generate(template=template_sync,
                                  fs=500,
@@ -21,7 +21,7 @@ if __name__ == "__main__":
                                                   "background_mag": 0.09,
                                                   "duration_tol": 0.5})
 
-    fn = 'sample_multisensory_data_matched.hdf5'
+    fn = 'data/sample_multisensory_data_matched_250k.hdf5'
     if not os.path.exists(fn):
         MultiTwoGapStim.generate(template=template_matched,
                                  fs=500,
@@ -33,7 +33,7 @@ if __name__ == "__main__":
                                                   "background_mag": 0.09,
                                                   "duration_tol": 0.5})
 
-    fn = 'sample_multisensory_data_unmatched.hdf5'
+    fn = 'data/sample_multisensory_data_unmatched_250k.hdf5'
     if not os.path.exists(fn):
         MultiTwoGapStim.generate(template=template_unmatched,
                                  fs=500,

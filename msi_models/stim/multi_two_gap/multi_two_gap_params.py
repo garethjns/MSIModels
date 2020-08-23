@@ -26,24 +26,19 @@ class MultiTwoGapParams(BaseModel):
     # Individual event params
     event: Union[Union[partial, Callable],
                  List[Union[partial, Callable]]]
-    duration: Union[int,
-                    List[int]]
-    n_events: Union[int,
-                    List[int]]
+    duration: Union[int, List[int]]
+    n_events: Union[int, List[int]]
     background: Union[Union[partial, Callable],
                       List[Union[partial, Callable]]]
     gap_1: Union[Union[partial, Callable],
                  List[Union[partial, Callable]]]
     gap_2: Union[Union[partial, Callable],
                  List[Union[partial, Callable]]]
-    background_weight: Union[float,
-                             List[float]]
-    seed: Union[Union[int, None],
-                List[Union[int, None]]]
-    cache: Union[bool,
-                 List[bool]]
-    duration_tol: Union[float,
-                        List[float]]
+    background_weight: Union[float, List[float]]
+    seed: Union[Union[int, None], List[Union[int, None]]]
+    cache: Union[bool, List[bool]]
+    duration_tol: Union[float, List[float]]
+    normalise: Union[bool, List[bool]] = [True, True]
     # Optional validators
     validate_as_sync: Union[bool, None] = None
     validate_as_matched: Union[bool, None] = None
@@ -61,6 +56,7 @@ class MultiTwoGapParams(BaseModel):
     _validate_background_weight = validator("background_weight", allow_reuse=True)(_ensure_list)
     _validate_cache = validator("cache", allow_reuse=True)(_ensure_list)
     _validate_duration_tol = validator("duration_tol", allow_reuse=True)(_ensure_list)
+    _validate_normalise = validator("normalise", allow_reuse=True)(_ensure_list)
 
     @validator("seed", pre=True)
     def _check_if_sync_and_expected(cls, v, values, **kwargs):

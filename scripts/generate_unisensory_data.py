@@ -6,7 +6,7 @@ if __name__ == "__main__":
                                                           fs=500,
                                                           background_mag=0.09,
                                                           duration_tol=0.5),
-                        n=3000,
-                        batch_size=5,
-                        fn='unisensory_data_hard.hdf5',
+                        n=250000,
+                        batch_size=50,
+                        fn='sample_unisensory_data_hard.hdf5',
                         n_jobs=-2)

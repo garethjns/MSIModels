@@ -11,7 +11,6 @@ from msi_models.exceptions.params import IncompatibleParametersException, Invali
 from msi_models.stimset.channel import Channel
 from msi_models.stimset.channel import ChannelConfig
 
-
 os.sep = '/'
 
 
@@ -139,15 +138,28 @@ class MultiChannel:
         for k, v in self.y.items():
             print(f"{k}: {v[row]}")
 
-        for v in self.x.values():
-            plt.plot(v[row])
+        fig, axs = plt.subplots(nrows=2, ncols=1)
+        for i, (c, ax) in enumerate(zip(["left", "right"], axs)):
+            ax.plot(self.x[f'{c}_x'][row], label=f'Signal (x)')
+            ax.plot(self.x[f'{c}_x_mask'][row], label=f'Events mask (y)')
+            ax.set_title(
+                f'"{c.capitalize()}" channel, rate: {self.y[f"{c}_y_rate"][row]}, decision: {self.y[f"{c}_y_dec"][row]}',
+                fontweight='bold')
+            ax.set_ylabel('Mag', fontweight='bold')
+            if i == 1:
+                ax.set_xlabel('Time', fontweight='bold')
+                ax.legend(loc='lower right')
+
+        fig.suptitle(f"Aggregated rate: {self.y['agg_y_rate'][row]}, decision {self.y['agg_y_dec'][row]}",
+                     fontweight='bold')
+        fig.tight_layout()
 
         if show:
             plt.show()
 
 
 if __name__ == "__main__":
-    path = "data/sample_multisensory_data_matched.hdf5"
+    path = "../../data/sample_multisensory_data_matched_250k.hdf5"
     common_kwargs = {"path": path,
                      "train_prop": 0.8,
                      "x_keys": ["x", "x_mask"],

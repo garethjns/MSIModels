@@ -29,11 +29,11 @@ class MultisensoryBase(KerasSKBase):
                  lr: float = 0.0005,
                  epochs: int = 1000,
                  batch_size: int = 2000,
-                 es_patience: int = 2000,
+                 es_patience: int = 20,
                  es_loss: str = 'val_loss',
                  input_length: int = 650,
-                 conv_1_filters: int = 32, conv_1_kernel_size: int = 16, conv_1_activation: str = 'relu',
-                 conv_2_filters: int = 64, conv_2_kernel_size: int = 8, conv_2_activation: str = 'relu',
+                 conv_1_filters: int = 16, conv_1_kernel_size: int = 16, conv_1_activation: str = 'relu',
+                 conv_2_filters: int = 32, conv_2_kernel_size: int = 8, conv_2_activation: str = 'relu',
                  drop_1_prop: float = 0.2,
                  drop_2_prop: float = 0.2,
                  fc_1_units_input_prop: float = 1 / 16, fc_1_activation: str = 'relu',
@@ -89,7 +89,7 @@ class MultisensoryBase(KerasSKBase):
 
         rate_output = layers.Dense(1,
                                    activation='relu',
-                                   name=f'{side}_rate_output')(flatten_1)
+                                   name=f'{side}_y_rate')(flatten_1)
 
         return x, conv_1, max_pool_1, flatten_1, rate_output
 
@@ -131,7 +131,7 @@ class MultisensoryBase(KerasSKBase):
         left_flatten_2 = layers.Flatten(name="left_flatten_2")(left_conv_2)
         left_rate_output = layers.Dense(1,
                                         activation='relu',
-                                        name='left_rate_output')(left_flatten_2)
+                                        name='left_y_rate')(left_flatten_2)
         left_drop_1 = layers.Dropout(rate=self.drop_1_prop)(left_flatten_2)
 
         right_conv_2 = layers.Conv1D(filters=self.conv_2_filters,
@@ -141,7 +141,7 @@ class MultisensoryBase(KerasSKBase):
         right_flatten_2 = layers.Flatten(name="right_flatten_2")(right_conv_2)
         right_rate_output = layers.Dense(1,
                                          activation='relu',
-                                         name='right_rate_output')(right_flatten_2)
+                                         name='right_y_rate')(right_flatten_2)
         right_drop_1 = layers.Dropout(rate=self.drop_1_prop)(right_flatten_2)
 
         concat_1 = layers.concatenate(inputs=[left_drop_1, right_drop_1],
@@ -173,7 +173,7 @@ class MultisensoryBase(KerasSKBase):
                                  name="left_fc_1")(left_drop_1)
         left_rate_output = layers.Dense(1,
                                         activation='relu',
-                                        name='left_rate_output')(fc_1_left)
+                                        name='left_y_rate')(fc_1_left)
 
         right_conv_2 = layers.Conv1D(filters=self.conv_2_filters,
                                      kernel_size=self.conv_2_kernel_size,
@@ -186,7 +186,7 @@ class MultisensoryBase(KerasSKBase):
                                   name="right_fc_1")(right_drop_1)
         right_rate_output = layers.Dense(1,
                                          activation='relu',
-                                         name='right_rate_output')(fc_1_right)
+                                         name='right_y_rate')(fc_1_right)
 
         concat_1 = layers.concatenate(inputs=[fc_1_left, fc_1_right],
                                       name='concat_1')

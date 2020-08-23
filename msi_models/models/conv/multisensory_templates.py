@@ -8,6 +8,3 @@ class MultisensoryClassifier(MultisensoryBase):
                      "agg_y_rate": 0.5}
     _metrics = {"agg_y_dec": ['accuracy']}
 
-
-if __name__ == "__main__":
-    pass

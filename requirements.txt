@@ -3,7 +3,7 @@ pandas
 tensorflow-gpu>=2.0
 matplotlib
 seaborn
-audiodag==0.0.16
+audiodag==0.0.18
 pydantic
 pydot
 graphviz
@@ -13,3 +13,6 @@ tables
 tqdm
 scikit-learn
 mlflow
+flake8
+pytest
+coverage

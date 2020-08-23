@@ -36,7 +36,8 @@ def template_unmatched(n_events: List[int] = None,
                                      background_weight=[config_1.background_weight, config_2.background_weight],
                                      seed=[config_1.seed, config_2.seed],
                                      cache=[config_1.cache, config_2.cache],
-                                     duration_tol=[config_1.duration_tol, config_2.duration_tol])
+                                     duration_tol=[config_1.duration_tol, config_2.duration_tol],
+                                     normalise=[config_1.normalise, config_2.normalise])
 
     return multi_params
 
@@ -70,7 +71,8 @@ def template_matched(n_events: List[int] = None,
                              background_weight=[config_1.background_weight, config_2.background_weight],
                              seed=[config_1.seed, config_2.seed],
                              cache=[config_1.cache, config_2.cache],
-                             duration_tol=[config_1.duration_tol, config_2.duration_tol])
+                             duration_tol=[config_1.duration_tol, config_2.duration_tol],
+                             normalise=[config_1.normalise, config_2.normalise])
 
 
 def template_sync(n_events: List[int] = None,
@@ -99,4 +101,5 @@ def template_sync(n_events: List[int] = None,
                              background_weight=config.background_weight,
                              seed=config.seed,
                              cache=config.cache,
-                             duration_tol=config.duration_tol)
+                             duration_tol=config.duration_tol,
+                             normalise=config.normalise)

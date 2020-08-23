@@ -28,7 +28,6 @@ class ExperimentalModel:
             validation_split: float = 0.4, **kwargs):
         self.model.fit(data.stimset.x_train, data.stimset.y_train,
                        shuffle=True,
-                       epochs=self.model.epochs,
                        validation_split=validation_split,
                        **kwargs)
 

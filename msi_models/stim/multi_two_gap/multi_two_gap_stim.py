@@ -23,7 +23,7 @@ class MultiTwoGapStim:
 
         self.channel_params: List[TwoGapParams]
         self._individual_param_fields = ['event', 'duration', 'n_events', 'background', 'gap_1', 'gap_2',
-                                         'background_weight', 'seed', 'cache', 'duration_tol']
+                                         'background_weight', 'seed', 'cache', 'duration_tol', 'normalise']
         self.channels: List[TwoGapStim]
         self._generate_channels()
 
@@ -89,8 +89,7 @@ class MultiTwoGapStim:
         """Supports 2 channels for now."""
 
         n_batches = int(n / batch_size)
-        xy = Parallel(backend='loky',
-                      verbose=0,
+        xy = Parallel(verbose=1,
                       n_jobs=n_jobs)(delayed(MultiTwoGapStim._batch)(n=batch_size,
                                                                      template=template,
                                                                      fs=fs,

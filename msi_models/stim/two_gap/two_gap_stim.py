@@ -1,3 +1,4 @@
+import gc
 from functools import partial
 from itertools import zip_longest
 from typing import List, Tuple
@@ -22,8 +23,8 @@ class TwoGapStim(Seeded):
         self.params = params
 
         event = self.params.event()
-        self._indicator_event = partial(Component, duration=event.duration, fs=event.fs, mag=1)
-        self._indicator_background = partial(Component, duration=params.duration, fs=event.fs, mag=0)
+        self._indicator_event = partial(Component, duration=event.duration, fs=event.fs, mag=1, cache=True)
+        self._indicator_background = partial(Component, duration=params.duration, fs=event.fs, mag=0, cache=True)
         self._y: Union[None, CompoundComponent] = None
         self._y_mask = None
 
@@ -109,21 +110,21 @@ class TwoGapStim(Seeded):
         cursor = self.state.randint(available_pts) if available_pts > 0 else 0
 
         # Generate actual events with now-known start times. Also make make indicating event locations.
-        evs = [self.params.background(start=0)]
+        evs = [self.params.background(start=0, cache=True)]
         weights = [self.params.background_weight]
-        indicators = [self._indicator_background(start=0)]
+        indicators = [self._indicator_background(start=0, cache=True)]
         for ev in self.ev_list_:
-            ev_init = ev(start=cursor)
+            ev_init = ev(start=cursor, cache=True)
             evs.append(ev_init)
             weights.append(1)
 
             if ev == self.params.event:
-                indicators.append(self._indicator_event(start=cursor))
+                indicators.append(self._indicator_event(start=cursor, cache=True))
 
             cursor += ev_init.duration
 
-        return (CompoundComponent(events=evs, weights=weights),
-                CompoundComponent(events=indicators))
+        return (CompoundComponent(events=evs, weights=weights, normalise=self.params.normalise, cache=True),
+                CompoundComponent(events=indicators, normalise=self.params.normalise, cache=True))
 
     def _get_or_generate(self) -> Tuple[CompoundComponent, CompoundComponent]:
 
@@ -204,6 +205,7 @@ class TwoGapStim(Seeded):
             x[n_i, :] = stim.y.y
             x_indicators[n_i, :] = stim.y_mask.y
 
+        gc.collect()
         return np.expand_dims(x, axis=2), np.expand_dims(x_indicators, axis=2), y_rate, y_dec
 
 

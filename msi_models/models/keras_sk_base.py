@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.base import BaseEstimator
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
-from tensorflow_core.python.keras.api._v2 import keras
+from tensorflow import keras
 
 
 class KerasSKBase(abc.ABC, BaseEstimator):
@@ -66,6 +66,7 @@ class KerasSKBase(abc.ABC, BaseEstimator):
                            patience=self.es_patience)
         tb = TensorBoard(histogram_freq=5)
 
+        print(self.batch_size)
         self.model.fit(*args,
                        batch_size=self.batch_size,
                        callbacks=[es, tb], **kwargs)
