@@ -1,8 +1,8 @@
 import unittest
 from functools import partial
 
-from audiodag.signal.components.noise import NoiseComponent
-from audiodag.signal.components.tonal import SineComponent
+from audiodag.signal.components.noise_component import NoiseComponent
+from audiodag.signal.components.tonal_component import SineComponent
 from audiodag.signal.envelopes.templates import CosRiseEnvelope
 
 from msi_models.exceptions.params import InvalidParameterException, IncompatibleParametersException

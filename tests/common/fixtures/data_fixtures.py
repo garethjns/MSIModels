@@ -2,6 +2,7 @@ import os
 
 import h5py
 import numpy as np
+import pandas as pd
 
 
 class DataFixture:
@@ -75,6 +76,7 @@ class MultisensoryDataFixture(DataFixture):
     /--agg/
            |--y_rate
            |--y_dec
+   |--summary
 
     """
     path: str = 'test_multisensory_data_fixture.hdf5'
@@ -91,3 +93,6 @@ class MultisensoryDataFixture(DataFixture):
             f.create_dataset("right/y_dec", data=self.y_dec_right, compression='gzip')
             f.create_dataset("agg/y_rate", data=(self.y_rate_left + self.y_rate_right) / 2, compression='gzip')
             f.create_dataset("agg/y_dec", data=(self.y_dec_left + self.y_dec_right) / 2, compression='gzip')
+
+        summary = pd.DataFrame({'example': [0, 1, 2]})
+        summary.to_hdf(self.path, key='summary', mode='a')

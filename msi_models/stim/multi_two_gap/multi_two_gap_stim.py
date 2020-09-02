@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Tuple, Callable
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from audiodag.signal.digital.conversion import ms_to_pts
 from joblib import Parallel, delayed
 from pydantic import PositiveInt
@@ -99,13 +100,14 @@ class MultiTwoGapStim:
 
         with h5py.File(fn, 'w') as f:
             for channel_key in xy[0].keys():
-                for content_key in xy[0][channel_key].keys():
-                    concat_output = np.concatenate([b[channel_key][content_key] for b in xy],
-                                                   axis=0)
+                if channel_key != 'summary':
+                    for content_key in xy[0][channel_key].keys():
+                        f.create_dataset("/".join([channel_key, content_key]),
+                                         data=np.concatenate([b[channel_key][content_key] for b in xy], axis=0),
+                                         compression='gzip')
 
-                    f.create_dataset("/".join([channel_key, content_key]),
-                                     data=concat_output,
-                                     compression='gzip')
+        summary = pd.concat([b["summary"] for b in xy], axis=0).reset_index(drop=True)
+        summary.to_hdf(fn, key='summary', mode='a')
 
     @classmethod
     def _batch(cls, template: Callable,
@@ -148,8 +150,11 @@ class MultiTwoGapStim:
         agg_y_rate = np.zeros(shape=(n,),
                               dtype=np.uint16)
 
+        multi_stim_configs = []
         for n_i in range(n):
-            multi_stim = MultiTwoGapStim(template(fs=fs, **template_kwargs))
+            multi_stim_config = template(fs=fs, **template_kwargs)
+            multi_stim_configs.append(multi_stim_config)
+            multi_stim = MultiTwoGapStim(multi_stim_config)
 
             left_y_rate[n_i] = multi_stim.channel_params[0].n_events
             right_y_rate[n_i] = multi_stim.channel_params[1].n_events
@@ -166,6 +171,24 @@ class MultiTwoGapStim:
             right_x[n_i, :] = multi_stim.y[1].y
             right_x_indicators[n_i, :] = multi_stim.y_mask[1].y
 
+        summary = pd.DataFrame({'n_channels': [cfg.dict()['n_channels'] for cfg in multi_stim_configs],
+                                'left_duration': [cfg.dict()['duration'][0] for cfg in multi_stim_configs],
+                                'right_duration': [cfg.dict()['duration'][1] for cfg in multi_stim_configs],
+                                'left_n_events': [cfg.dict()['n_events'][0] for cfg in multi_stim_configs],
+                                'right_n_events': [cfg.dict()['n_events'][1] for cfg in multi_stim_configs],
+                                'left_background_weight': [cfg.dict()['background_weight'][0]
+                                                           for cfg in multi_stim_configs],
+                                'right_background_weight': [cfg.dict()['background_weight'][1]
+                                                            for cfg in multi_stim_configs],
+                                'left_seed': [cfg.dict()['seed'][0] for cfg in multi_stim_configs],
+                                'right_seed': [cfg.dict()['seed'][1] for cfg in multi_stim_configs],
+                                'left_duration_tol': [cfg.dict()['duration_tol'][0] for cfg in multi_stim_configs],
+                                'right_duration_tol': [cfg.dict()['duration_tol'][1] for cfg in multi_stim_configs],
+                                'left_normalise': [cfg.dict()['normalise'][0] for cfg in multi_stim_configs],
+                                'right_normalise': [cfg.dict()['normalise'][1] for cfg in multi_stim_configs],
+                                'sync': [cfg.dict()['validate_as_sync'] for cfg in multi_stim_configs],
+                                'matched': [cfg.dict()['validate_as_matched'] for cfg in multi_stim_configs]})
+
         return {'left': {'x': np.expand_dims(left_x, axis=2),
                          'x_mask': np.expand_dims(left_x_indicators, axis=2),
                          'y_rate': left_y_rate,
@@ -177,7 +200,8 @@ class MultiTwoGapStim:
                           'y_dec': right_y_dec,
                           'configs': right_configs},
                 'agg': {'y_rate': agg_y_rate,
-                        'y_dec': agg_y_dec}}
+                        'y_dec': agg_y_dec},
+                'summary': summary}
 
 
 if __name__ == "__main__":

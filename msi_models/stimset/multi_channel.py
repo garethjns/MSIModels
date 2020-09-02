@@ -5,6 +5,7 @@ from typing import List, Union
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from pydantic import BaseModel, root_validator, PositiveInt, validator, FilePath
 
 from msi_models.exceptions.params import IncompatibleParametersException, InvalidParameterException
@@ -87,6 +88,10 @@ class MultiChannel:
 
         self.y_keys = [os.path.join(self.config.key, k).replace('\\', '/') for k in self.config.y_keys]
 
+        self.summary: pd.DataFrame = pd.read_hdf(self.config.path, key='summary', mode='r')
+        self.summary_train = self.summary.iloc[self.channels[0].train_idx]
+        self.summary_test = self.summary.iloc[self.channels[0].test_idx]
+
     @property
     def x(self):
         x = {}
@@ -132,8 +137,7 @@ class MultiChannel:
 
         return ys
 
-    def plot_example(self,
-                     show: bool = True):
+    def plot_example(self, show: bool = True):
         row = np.random.choice(range(0, self.n))
         for k, v in self.y.items():
             print(f"{k}: {v[row]}")

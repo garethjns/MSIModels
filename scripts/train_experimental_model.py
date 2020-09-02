@@ -1,15 +1,20 @@
 """Example training a model using the experimental wrappers"""
 import os
 
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
+import tensorflow as tf
+
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannelConfig
+from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
+
+tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
+                                                        [tf.config.experimental.VirtualDeviceConfiguration(
+                                                            memory_limit=4000)])
 
 if __name__ == "__main__":
     # Prepare data
-    fn = "../data/sample_multisensory_data_matched_250k.hdf5"
+    fn = "data/sample_multisensory_data_matched_med_250k.hdf5"
     path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
 
     common_kwargs = {"path": path,
@@ -24,28 +29,23 @@ if __name__ == "__main__":
                                       key='agg',
                                       y_keys=common_kwargs["y_keys"],
                                       channels=[left_config, right_config])
-    exp_data = ExperimentalDataset(name='example_dataset',
-                                   config=multi_config)
-    exp_data.build(seed=123)
+    mc = MultiChannel(multi_config)
 
-    # Prepare model
-    mod = MultisensoryClassifier(integration_type='intermediate_integration',
-                                 opt='adam',
-                                 epochs=20,
-                                 batch_size=2000,
-                                 lr=0.0025)
-    exp_model = ExperimentalModel(model=mod)
+    # Prepare models
+    common_model_kwargs = {'opt': 'adam',
+                           'batch_size': 10000,
+                           'lr': 0.01}
+    early_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='early_integration',
+                                                               **common_model_kwargs))
+    int_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='intermediate_integration',
+                                                             **common_model_kwargs))
+    late_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='late_integration',
+                                                              **common_model_kwargs))
 
-    # Fit
-    exp_model.fit(exp_data)
-
-    # Evaluate
-    exp_model.plot_example(exp_data,
-                           dec_key='agg_y_dec')
-    train_report, test_report = exp_model.report(exp_data)
-
-    exp_model.plot_example(exp_data,
-                           dec_key='agg_y_dec')
-    exp_model.plot_example(exp_data,
-                           dec_key='agg_y_dec',
-                           mistake=True)
+    for mod in [early_exp_model, int_exp_model, late_exp_model]:
+        # Fit
+        mod.fit(mc, epochs=10)
+        # Eval
+        # mod.plot_example(mc, dec_key='agg_y_dec')
+        mod.plot_psychometric_curve(mc)
+        train_report, test_report = mod.report(mc)
