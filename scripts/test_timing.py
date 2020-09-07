@@ -1,5 +1,5 @@
 from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
-from msi_models.stim.multi_two_gap.multi_two_gap_templates import template_sync
+from msi_models.stim.multi_two_gap.multi_two_gap_template import template_sync
 
 N = 10
 N_JOBS = 1

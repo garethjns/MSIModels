@@ -3,7 +3,7 @@ pandas
 tensorflow-gpu>=2.0
 matplotlib
 seaborn
-audiodag==0.0.18
+audiodag==0.0.19
 pydantic
 pydot
 graphviz

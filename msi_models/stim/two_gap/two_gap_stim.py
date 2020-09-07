@@ -123,8 +123,8 @@ class TwoGapStim(Seeded):
 
             cursor += ev_init.duration
 
-        return (CompoundComponent(events=evs, weights=weights, normalise=self.params.normalise, cache=True),
-                CompoundComponent(events=indicators, normalise=self.params.normalise, cache=True))
+        return (CompoundComponent(components=evs, weights=weights, normalise=self.params.normalise, cache=True),
+                CompoundComponent(components=indicators, normalise=self.params.normalise, cache=True))
 
     def _get_or_generate(self) -> Tuple[CompoundComponent, CompoundComponent]:
 

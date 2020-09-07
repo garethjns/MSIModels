@@ -83,18 +83,22 @@ class MultisensoryBase(KerasSKBase):
     def _build_intermediate_channel(self, input_layer: layers.Layer,
                                     side: str) -> Tuple[layers.Layer, layers.Layer, layers.Layer]:
 
+        pool_size = int(self.max_pool_2 if side == 'mid' else self.max_pool_2 / 2)
+
         side_conv_2 = layers.Conv1D(filters=self.conv_2_filters, kernel_size=self.conv_2_kernel_size,
                                     name=f"{side}_conv_2",
                                     activation=self.conv_2_activation)(input_layer)
-        side_max_pool_2 = layers.MaxPooling1D(pool_size=self.max_pool_2, name=f"{side}_max_pool_2")(side_conv_2)
+        side_max_pool_2 = layers.MaxPooling1D(pool_size=pool_size, name=f"{side}_max_pool_2")(side_conv_2)
         side_flatten_2 = layers.Flatten(name=f"{side}_flatten_2")(side_max_pool_2)
 
         return side_conv_2, side_max_pool_2, side_flatten_2
 
     def _build_late_channel(self, input_layer: layers.Layer,
                             side: str) -> Tuple[layers.Layer, layers.Layer]:
-        fc_1 = layers.Dense(int(self.fc_1_units_input_prop * self.input_length),
-                            activation=self.fc_1_activation, name=f"{side}_fc_1")(input_layer)
+        n_units = self.fc_1_units_input_prop * self.input_length
+        n_units = int(n_units if side == 'mid' else n_units / 2)
+
+        fc_1 = layers.Dense(n_units, activation=self.fc_1_activation, name=f"{side}_fc_1")(input_layer)
         drop_1 = layers.Dropout(rate=self.drop_1_prop, name=f'{side}_drop_1')(fc_1)
 
         return fc_1, drop_1

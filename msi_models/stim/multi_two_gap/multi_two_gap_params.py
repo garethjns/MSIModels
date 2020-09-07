@@ -20,6 +20,11 @@ class MultiTwoGapParams(BaseModel):
     Config for multichannel two gap stim, designed initially to be 2 channel.
 
     All params can either be single value (common between channels) or list in order [c1, c2].
+
+    Normalise has special behaviour.
+    If List[bool, bool] applies normalisation to each channel separately
+    If True: Turns OFF individual stim normalisation, then normalises across channels after generation
+    If False, off completely
     """
     # Multi event params
     n_channels: int = 2
@@ -38,7 +43,8 @@ class MultiTwoGapParams(BaseModel):
     seed: Union[Union[int, None], List[Union[int, None]]]
     cache: Union[bool, List[bool]]
     duration_tol: Union[float, List[float]]
-    normalise: Union[bool, List[bool]] = [True, True]
+    normalise: Union[bool, List[bool]] = [False, False]
+    normalise_across_channels: bool = True
     # Optional validators
     validate_as_sync: Union[bool, None] = None
     validate_as_matched: Union[bool, None] = None
@@ -92,11 +98,22 @@ class MultiTwoGapParams(BaseModel):
     @root_validator
     def check_same_number_of_channels(cls, values):
         lens = []
-        for k in [f for f in values.keys() if f not in ["validate_as_sync", "validate_as_matched", "n_channels"]]:
+        for k in [f for f in values.keys() if f not in ['normalise_across_channels', "validate_as_sync",
+                                                        "validate_as_matched", "n_channels"]]:
             lens.append(len(values[k]))
 
         if len(np.unique(lens)) > 1:
             raise IncompatibleParametersException(f"Number of expected channels differs between fields.")
+
+        return values
+
+    @root_validator
+    def _check_normalisation_settings_make_sense(cls, values):
+        if values['normalise_across_channels'] is True:
+            if np.any(values['normalise']):
+                raise IncompatibleParametersException(f"normalise_across_channels is set to True, however, at least one"
+                                                      f" channel config is set to normalise during generation: "
+                                                      f"{values['normalise']}")
 
         return values
 
@@ -137,4 +154,17 @@ if __name__ == "__main__":
                                      background_weight=0.05,
                                      seed=123,
                                      cache=True,
+                                     duration_tol=0.3)
+
+    # Should raise error. TODO: Add to tests.
+    multi_config = MultiTwoGapParams(event=config.event,
+                                     n_events=12,
+                                     duration=1250,
+                                     background=config.background,
+                                     gap_1=config.gap_1,
+                                     gap_2=config.gap_2,
+                                     background_weight=0.05,
+                                     seed=None,
+                                     cache=True,
+                                     normalise=[False, True],
                                      duration_tol=0.3)

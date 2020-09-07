@@ -115,21 +115,6 @@ class TestMultiTwoGapParams(unittest.TestCase):
         self.assertIsInstance(multi_params, MultiTwoGapParams)
         self.assertEqual(len(multi_params.n_events), 2)
 
-    def test_init_works_without_lists_and_expands_correctly(self):
-        # Arrange
-        params = self.common_kwargs
-        params.update(self.less_common_kwargs)
-
-        # Act
-        multi_params = self._sut(n_channels=3,
-                                 validate_as_sync=True,
-                                 validate_as_matched=True,
-                                 **params)
-
-        # Assert
-        self.assertIsInstance(multi_params, MultiTwoGapParams)
-        self.assertEqual(len(multi_params.n_events), 3)
-
     def test_init_works_with_lists(self):
         # Arrange
         params = {k: [v, v] for k, v in self.common_kwargs.items()}

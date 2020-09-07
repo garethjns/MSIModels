@@ -1,12 +1,11 @@
 import gc
 from dataclasses import dataclass
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple, Union, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
 from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
 from msi_models.models.keras_sk_base import KerasSKBase
@@ -70,17 +69,35 @@ class ExperimentalModel:
 
         return concat_preds
 
-    def plot_psychometric_curve(self, data: MultiChannel, y_key:str='agg_y_rate'):
+    def calc_prop_fast(self, data: MultiChannel,
+                       type_key: str = 'type', rate_key: str = 'agg_y_rate') -> List[pd.DataFrame]:
         train_df, test_df = self.report(data)
 
-        for name, df in zip(['train', 'test'], [train_df, test_df]):
-            df_gb = df.groupby(y_key).mean().reset_index(drop=False)
-            plt.plot(df_gb[y_key], df_gb.preds_dec, label=name)
+        return [df[[type_key, rate_key, 'preds_dec']].groupby([rate_key, type_key]).mean().reset_index(drop=False)
+                for df in [train_df, test_df]]
 
-        plt.xlabel('Rate, Hz', fontweight='bold')
-        plt.ylabel('Prop fast decision', fontweight='bold')
-        plt.legend(title='Set')
-        plt.title(self.model.integration_type.capitalize(), fontweight='bold')
+    def plot_prop_fast(self, data: MultiChannel, type_key='type', rate_key: str = 'agg_y_rate'):
+        train_pf, test_pf = self.calc_prop_fast(data, type_key=type_key, rate_key=rate_key)
+
+        rates = train_pf[rate_key].unique()
+        typs = np.sort(data.summary.type.unique())
+        n_subplots = len(typs)
+        fig, axs = plt.subplots(ncols=n_subplots, figsize=(2.5 * n_subplots, 8))
+        for ai, (ax, ty) in enumerate(zip(axs, typs)):
+            for name, df in zip(['train', 'test'], [train_pf, test_pf]):
+                df_subset = df.loc[df.type == ty, [rate_key, 'preds_dec']]
+                ax.plot(df_subset[rate_key], df_subset.preds_dec, label=name)
+
+            ax.set_title(f"Type: {ty}", fontweight='bold')
+            ax.set_xlim([min(rates) - 1, max(rates) + 1])
+            ax.set_ylim([0, 1])
+            ax.set_xlabel('Rate, Hz', fontweight='bold')
+            if ai == 0:
+                ax.set_ylabel('Prop fast decision', fontweight='bold')
+                ax.legend(title='Set')
+
+        plt.suptitle(self.model.integration_type.capitalize(), fontweight='bold')
+        fig.tight_layout()
         plt.show()
 
     def _plot_for_intermediate_model(self, data: MultiChannel, row: int) -> plt.Figure:
@@ -169,14 +186,20 @@ class ExperimentalModel:
         train_preds, test_preds = self.predict(data)
 
         dfs = []
-        for d, preds in zip([data.y_train, data.y_test], [train_preds, test_preds]):
-            dfs.append(pd.DataFrame({'left_y_rate': d["left_y_rate"],
-                                     'right_y_rate': d["right_y_rate"],
-                                     'agg_y_rate': d["agg_y_rate"],
-                                     'preds_rate': preds["agg_y_rate"].squeeze(),
-                                     'left_y_dec': d["left_y_dec"][:, 1],
-                                     'right_y_dec': d["right_y_dec"][:, 1],
-                                     'agg_y_dec': d["agg_y_dec"][:, 1],
-                                     'preds_dec': preds["agg_y_dec"][:, 1]}))
+        for summ, d, preds in zip([data.summary_train, data.summary_test],
+                                  [data.y_train, data.y_test],
+                                  [train_preds, test_preds]):
+            report_df = pd.DataFrame({'left_y_rate': d["left_y_rate"],
+                                      'right_y_rate': d["right_y_rate"],
+                                      'agg_y_rate': d["agg_y_rate"],
+                                      'preds_rate': preds["agg_y_rate"].squeeze(),
+                                      'left_y_dec': d["left_y_dec"][:, 1],
+                                      'right_y_dec': d["right_y_dec"][:, 1],
+                                      'agg_y_dec': d["agg_y_dec"][:, 1],
+                                      'preds_dec': preds["agg_y_dec"][:, 1]},
+                                     index=summ.index)
+
+            merged_df = report_df.merge(summ, left_index=True, right_index=True)
+            dfs.append(merged_df)
 
         return tuple(dfs)

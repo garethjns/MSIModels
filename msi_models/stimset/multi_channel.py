@@ -146,16 +146,15 @@ class MultiChannel:
         for i, (c, ax) in enumerate(zip(["left", "right"], axs)):
             ax.plot(self.x[f'{c}_x'][row], label=f'Signal (x)')
             ax.plot(self.x[f'{c}_x_mask'][row], label=f'Events mask (y)')
-            ax.set_title(
-                f'"{c.capitalize()}" channel, rate: {self.y[f"{c}_y_rate"][row]}, decision: {self.y[f"{c}_y_dec"][row]}',
-                fontweight='bold')
+            ax.set_title(f'"{c.capitalize()}" channel, rate: {self.y[f"{c}_y_rate"][row]}, '
+                         f'decision: {self.y[f"{c}_y_dec"][row]}', fontweight='bold')
             ax.set_ylabel('Mag', fontweight='bold')
             if i == 1:
                 ax.set_xlabel('Time', fontweight='bold')
                 ax.legend(loc='lower right')
 
-        fig.suptitle(f"Aggregated rate: {self.y['agg_y_rate'][row]}, decision {self.y['agg_y_dec'][row]}",
-                     fontweight='bold')
+        fig.suptitle(f"Type: {self.summary.loc[row, 'type']}, aggregated rate: {self.y['agg_y_rate'][row]}, "
+                     f"decision {self.y['agg_y_dec'][row]}", fontweight='bold')
         fig.tight_layout()
 
         if show:

@@ -33,12 +33,12 @@ class KerasSKBase(abc.ABC, BaseEstimator):
     def build_model(self):
         pass
 
-    def plot_dag(self):
+    def plot_dag(self) -> None:
         if self.model is None:
             self.build_model()
         keras.utils.plot_model(self.model, f"{self.integration_type}_mod.png", show_shapes=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.model is not None:
             return self.model.summary()
         else:
@@ -47,7 +47,7 @@ class KerasSKBase(abc.ABC, BaseEstimator):
     def fit_generator(self, *args, **kwargs):
         self.model.fit_generator(*args, **kwargs)
 
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, **kwargs) -> None:
 
         if self.opt.lower() == "RMSprop":
             opt = keras.optimizers.RMSprop(lr=self.lr)

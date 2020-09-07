@@ -1,23 +1,22 @@
 from msi_models.exceptions.params import IncompatibleParametersException
 from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
-from msi_models.stim.multi_two_gap.multi_two_gap_templates import (template_matched, template_sync,
-                                                                   template_unmatched)
+from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
 from msi_models.stim.two_gap.two_gap_stim import TwoGapStim
 from msi_models.stim.two_gap.two_gap_templates import template_sine_events, template_noisy_sine_events
 
 
 def unisensory_stim_template_examples():
     """
-    TwoGapStim created from templates.
+    TwoGapStim created from templates. Uses functions to build example params.
     """
 
-    # Example stim using template with sine events:
-    stim = TwoGapStim(template_sine_events(cache=True))
-    stim.y.plot(show=False)
-    stim.y_mask.plot(show=True)
-
-    # Example stim using and modifying template with sine events::
-    stim = TwoGapStim(template_noisy_sine_events(fs=800))
+    # Example stim using and modifying template with sine events:
+    # Build params
+    params = template_noisy_sine_events(fs=800)
+    # Build stim
+    stim = TwoGapStim(params)
+    # Audiodag objects for each can be accessed using .y (this will be changed to y_obs in the future)
+    _ = stim.y
     stim.y.plot(show=False)
     stim.y_mask.plot(show=True)
 
@@ -35,23 +34,30 @@ def unisensory_stim_template_examples():
 
 def multisensory_stim_template_examples():
     """
-    MultiTwoGapStim created from templates.
+    MultiTwoGapStim created from templates. Uses MultiTwoGapTemplate class to build params.
     """
 
     # Unmatched
-    multi_stim_unmatched = MultiTwoGapStim(template_unmatched(cache=False))
-    multi_stim_unmatched.y
+    # Build params
+    params = MultiTwoGapTemplate['unmatched_async'].set_options(background_mag=0.05).build()
+    # Build stim
+    multi_stim_unmatched = MultiTwoGapStim(params)
+    # Audiodag objects for each can be accessed using .y_obs:
+    _ = multi_stim_unmatched.y_objs
+    # Or the rendered signal as an array using .y
+    _ = multi_stim_unmatched.y
+    # Plot:
     multi_stim_unmatched.plot(show=True)
 
     # Matched
-    multi_stim_matched = MultiTwoGapStim(template_matched(cache=True))
-    multi_stim_matched.y
+    params = MultiTwoGapTemplate['matched_async'].set_options(background_mag=0.05).build()
+    multi_stim_matched = MultiTwoGapStim(params)
     multi_stim_matched.plot(show=True)
 
     # Synchronous
-    multi_stim_sync = MultiTwoGapStim(template_sync(cache=True))
-    multi_stim_sync.y
-    multi_stim_sync.plot(show=True)
+    params = MultiTwoGapTemplate['matched_sync'].set_options(background_mag=0.05).build()
+    multi_stim_matched = MultiTwoGapStim(params)
+    multi_stim_matched.plot(show=True)
 
 
 if __name__ == "__main__":

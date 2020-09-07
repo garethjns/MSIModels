@@ -41,7 +41,7 @@ class TwoGapParams(BaseModel):
     """
     duration: PositiveInt
     event: Union[partial, Callable]
-    n_events: PositiveInt
+    n_events: int
     background: Union[partial, Callable]
     gap_1: Union[partial, Callable]
     gap_2: Union[partial, Callable]
