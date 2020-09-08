@@ -223,20 +223,20 @@ class MultiTwoGapStim:
 if __name__ == "__main__":
     from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
 
-    multi_stim_unmatched = MultiTwoGapStim(MultiTwoGapTemplate(1).build())
+    multi_stim_unmatched = MultiTwoGapStim(MultiTwoGapTemplate["unmatched_async"].set_options().build())
 
     multi_stim_unmatched.y
     multi_stim_unmatched.plot(show=True)
 
-    multi_stim_matched = MultiTwoGapStim(template_matched(cache=True))
+    multi_stim_matched = MultiTwoGapStim(MultiTwoGapTemplate["matched_async"].set_options().build())
     multi_stim_matched.y_objs
     multi_stim_matched.plot(show=True)
 
-    multi_stim_sync = MultiTwoGapStim(template_sync(cache=True))
+    multi_stim_sync = MultiTwoGapStim(MultiTwoGapTemplate["matched_sync"].set_options().build())
     multi_stim_sync.y_objs
     multi_stim_sync.plot(show=True)
 
-    MultiTwoGapStim.generate(template_sync,
+    MultiTwoGapStim.generate(templates=[MultiTwoGapTemplate["matched_sync"], MultiTwoGapTemplate["matched_async"]],
                              template_kwargs={"duration": 1300,
                                               "background_mag": 0.09,
                                               "duration_tol": 0.5})

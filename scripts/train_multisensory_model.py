@@ -14,7 +14,6 @@ tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.l
 if __name__ == "__main__":
     fn = 'data/sample_multisensory_data_sync_250k.hdf5'
     path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
-    # path = "/media/sf_Matlab/MSIModels/data/sample_multisensory_data_unmatched_250k.hdf5"
 
     common_kwargs = {"path": path,
                      "train_prop": 0.8,

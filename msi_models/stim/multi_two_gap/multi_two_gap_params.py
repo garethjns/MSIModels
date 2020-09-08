@@ -109,11 +109,10 @@ class MultiTwoGapParams(BaseModel):
 
     @root_validator
     def _check_normalisation_settings_make_sense(cls, values):
-        if values['normalise_across_channels'] is True:
-            if np.any(values['normalise']):
-                raise IncompatibleParametersException(f"normalise_across_channels is set to True, however, at least one"
-                                                      f" channel config is set to normalise during generation: "
-                                                      f"{values['normalise']}")
+        if values['normalise_across_channels'] is True and np.any(values['normalise']):
+            raise IncompatibleParametersException(f"normalise_across_channels is set to True, however, at least one"
+                                                  f" channel config is set to normalise during generation: "
+                                                  f"{values['normalise']}")
 
         return values
 

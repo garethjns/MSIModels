@@ -92,8 +92,6 @@ if __name__ == "__main__":
             # Fit
             mod.fit(mc, epochs=N_EPOCHS)
             # Eval
-            # mod.plot_example(mc, dec_key='agg_y_dec')
-            # mod.calc_prop_fast(mc, dec_key='agg_y_rate')
             mod.plot_prop_fast(mc, type_key='type', rate_key='agg_y_rate')
             train_report, test_report = mod.report(mc)
             gc.collect()
