@@ -119,8 +119,9 @@ The MultisensoryClassifier uses the agg/y_rate and agg/y_dec as output, targets,
 The channels are first defined, then combined into a MultiChannel object to feed the model with pre-generated data (stored in hdf5), see generations scripts above.
 
 ````python
+````python
 import os
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
 
@@ -171,11 +172,12 @@ See [View results](#view_results) section below to setup up MLflow to view the e
 scripts/run_single_experiment.py
 
 ```python
+```python
 import os
 from msi_models.experiment.experimental_run import ExperimentalRun
 from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig
 
@@ -225,7 +227,7 @@ In the MLflow logs, two experiments are created - one with the supplied name and
 from msi_models.experiment.experiment import Experiment
 from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig
 

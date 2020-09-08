@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
 from msi_models.models.keras_sk_base import KerasSKBase
 from msi_models.stimset.multi_channel import MultiChannel

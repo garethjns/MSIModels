@@ -10,7 +10,7 @@ import pandas as pd
 import tensorflow as tf
 
 from msi_models.experiment.experimental_model import ExperimentalModel
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
 
