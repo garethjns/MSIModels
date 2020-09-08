@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Tuple, Callable
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from audiodag.signal.digital.conversion import ms_to_pts
 from joblib import Parallel, delayed
 from pydantic import PositiveInt
@@ -23,14 +24,14 @@ class MultiTwoGapStim:
 
         self.channel_params: List[TwoGapParams]
         self._individual_param_fields = ['event', 'duration', 'n_events', 'background', 'gap_1', 'gap_2',
-                                         'background_weight', 'seed', 'cache', 'duration_tol']
+                                         'background_weight', 'seed', 'cache', 'duration_tol', 'normalise']
         self.channels: List[TwoGapStim]
         self._generate_channels()
 
         self._y = None
         self._y_mask = None
 
-    def _generate_channels(self):
+    def _generate_channels(self) -> None:
         # Create configs
         self.channel_params = []
         for c in range(self.n_channels):
@@ -57,11 +58,30 @@ class MultiTwoGapStim:
         return y, y_mask
 
     @property
-    def y(self) -> List[TwoGapStim]:
+    def y_objs(self) -> List[TwoGapStim]:
         return self._get_or_generate()[0]
 
+    @staticmethod
+    def _normalise(y: np.ndarray) -> np.ndarray:
+        y_min = y.min()
+        return (y - y_min) / (y.max() - y_min)
+
     @property
-    def y_mask(self) -> List[TwoGapStim]:
+    def y(self) -> np.ndarray:
+        if self.params.normalise_across_channels:
+            return self._normalise(np.array([c.y for c in self._get_or_generate()[0]]))
+        else:
+            return np.array([c.y for c in self._get_or_generate()[0]])
+
+    @property
+    def y_mask(self) -> np.ndarray:
+        if self.params.normalise_across_channels:
+            return self._normalise(np.array([c.y for c in self._get_or_generate()[1]]))
+        else:
+            return np.array([c.y for c in self._get_or_generate()[1]])
+
+    @property
+    def y_mask_objs(self) -> List[TwoGapStim]:
         return self._get_or_generate()[1]
 
     def plot(self,
@@ -69,47 +89,40 @@ class MultiTwoGapStim:
         fig, ax = plt.subplots(nrows=self.n_channels,
                                ncols=1)
 
-        for ax_, c in zip(ax, self.channels):
-            plt.sca(ax_)
-            c.y.plot(show=False)
-            c.y_mask.plot(show=False)
+        for c, ax_ in enumerate(ax):
+            ax_.plot(self.y[c, :])
+            ax_.plot(self.y_mask[c, :])
 
         if show:
             plt.show()
 
     @classmethod
-    def generate(cls, template: Callable,
-                 n: int = 400,
-                 batch_size: int = 20,
-                 events: List[int] = None,
-                 fs: int = 500,
-                 fn: str = 'multisensory_data.hdf5',
-                 n_jobs: int = -2,
+    def generate(cls, templates: List[Callable], n: int = 400, batch_size: int = 20, events: List[int] = None,
+                 fs: int = 500, fn: str = 'multisensory_data.hdf5', n_jobs: int = -2,
                  template_kwargs: Dict[str, Any] = None):
         """Supports 2 channels for now."""
 
         n_batches = int(n / batch_size)
-        xy = Parallel(backend='loky',
-                      verbose=0,
-                      n_jobs=n_jobs)(delayed(MultiTwoGapStim._batch)(n=batch_size,
-                                                                     template=template,
-                                                                     fs=fs,
-                                                                     events=events,
-                                                                     template_kwargs=template_kwargs) for _ in
-                                     tqdm(range(n_batches)))
+        batch_templates = np.random.choice(templates, replace=True, size=n_batches)
+
+        xy = Parallel(verbose=1,
+                      n_jobs=n_jobs)(delayed(MultiTwoGapStim._batch)(n=batch_size, template=t, fs=fs,
+                                                                     events=events, template_kwargs=template_kwargs)
+                                     for t in tqdm(batch_templates))
 
         with h5py.File(fn, 'w') as f:
             for channel_key in xy[0].keys():
-                for content_key in xy[0][channel_key].keys():
-                    concat_output = np.concatenate([b[channel_key][content_key] for b in xy],
-                                                   axis=0)
+                if channel_key != 'summary':
+                    for content_key in xy[0][channel_key].keys():
+                        f.create_dataset("/".join([channel_key, content_key]),
+                                         data=np.concatenate([b[channel_key][content_key] for b in xy], axis=0),
+                                         compression='gzip')
 
-                    f.create_dataset("/".join([channel_key, content_key]),
-                                     data=concat_output,
-                                     compression='gzip')
+        summary = pd.concat([b["summary"] for b in xy], axis=0).reset_index(drop=True)
+        summary.to_hdf(fn, key='summary', mode='a')
 
     @classmethod
-    def _batch(cls, template: Callable,
+    def _batch(cls, template: "MultiTwoGapTemplate",
                n: PositiveInt = 20,
                fs: int = 500,
                events: List[int] = None,
@@ -122,38 +135,45 @@ class MultiTwoGapStim:
             events = [11, 12, 13, 14, 15, 16]
 
         events_mean = np.mean(events)
-        example_params = template(fs=fs, **template_kwargs)
+        mtg_template = template.set_options(n_events=events, fs=fs, **template_kwargs)
+        example_params = mtg_template.build()
 
         left_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[0], fs)),
                                      dtype=np.float32)
         left_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[0], fs)),
                           dtype=np.float32)
         left_configs = []
-        left_y_rate = np.zeros(shape=(n,),
-                               dtype=np.uint16)
-        left_y_dec = np.zeros(shape=(n, 2),
-                              dtype=np.float32)
+        left_y_rate = np.zeros(shape=(n,), dtype=np.uint16)
+        left_y_dec = np.zeros(shape=(n, 2), dtype=np.float32)
 
-        right_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)),
-                                      dtype=np.float32)
-        right_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)),
-                           dtype=np.float32)
+        right_x_indicators = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)), dtype=np.float32)
+        right_x = np.zeros(shape=(n, ms_to_pts(example_params.duration[1], fs)), dtype=np.float32)
         right_configs = []
-        right_y_dec = np.zeros(shape=(n, 2),
-                               dtype=np.float32)
-        right_y_rate = np.zeros(shape=(n,),
-                                dtype=np.uint16)
+        right_y_dec = np.zeros(shape=(n, 2), dtype=np.float32)
+        right_y_rate = np.zeros(shape=(n,), dtype=np.uint16)
 
-        agg_y_dec = np.zeros(shape=(n, 2),
-                             dtype=np.float32)
-        agg_y_rate = np.zeros(shape=(n,),
-                              dtype=np.uint16)
+        agg_y_dec = np.zeros(shape=(n, 2), dtype=np.float32)
+        agg_y_rate = np.zeros(shape=(n,), dtype=np.uint16)
 
+        multi_stim_configs = []
         for n_i in range(n):
-            multi_stim = MultiTwoGapStim(template(fs=fs, **template_kwargs))
+            multi_stim_config = mtg_template.build()
+            multi_stim_configs.append(multi_stim_config)
+            multi_stim = MultiTwoGapStim(multi_stim_config)
 
-            left_y_rate[n_i] = multi_stim.channel_params[0].n_events
-            right_y_rate[n_i] = multi_stim.channel_params[1].n_events
+            if template.name == "left_only":
+                # Unisensory left
+                left_y_rate[n_i] = multi_stim.channel_params[0].n_events
+                right_y_rate[n_i] = multi_stim.channel_params[0].n_events
+            elif template.name == "right_only":
+                # Unisensory right
+                left_y_rate[n_i] = multi_stim.channel_params[1].n_events
+                right_y_rate[n_i] = multi_stim.channel_params[1].n_events
+            else:
+                # Multisensory
+                left_y_rate[n_i] = multi_stim.channel_params[0].n_events
+                right_y_rate[n_i] = multi_stim.channel_params[1].n_events
+
             agg_y_rate[n_i] = np.mean([left_y_rate[n_i], right_y_rate[n_i]])
 
             left_y_dec[n_i, int(left_y_rate[n_i] >= events_mean)] = 1
@@ -161,11 +181,29 @@ class MultiTwoGapStim:
             agg_y_dec[n_i, int(agg_y_rate[n_i] >= events_mean)] = 1
 
             left_configs.append(pickle.dumps(multi_stim.channel_params[0]))
-            left_x[n_i, :] = multi_stim.y[0].y
-            left_x_indicators[n_i, :] = multi_stim.y_mask[0].y
+            left_x[n_i, :] = multi_stim.y_objs[0].y
+            left_x_indicators[n_i, :] = multi_stim.y_mask_objs[0].y
             right_configs.append(pickle.dumps(multi_stim.channel_params[1]))
-            right_x[n_i, :] = multi_stim.y[1].y
-            right_x_indicators[n_i, :] = multi_stim.y_mask[1].y
+            right_x[n_i, :] = multi_stim.y_objs[1].y
+            right_x_indicators[n_i, :] = multi_stim.y_mask_objs[1].y
+
+        summary = pd.DataFrame({
+            'type': [template.value] * len(multi_stim_configs),
+            'n_channels': [cfg.dict()['n_channels'] for cfg in multi_stim_configs],
+            'left_duration': [cfg.dict()['duration'][0] for cfg in multi_stim_configs],
+            'right_duration': [cfg.dict()['duration'][1] for cfg in multi_stim_configs],
+            'left_n_events': [cfg.dict()['n_events'][0] for cfg in multi_stim_configs],
+            'right_n_events': [cfg.dict()['n_events'][1] for cfg in multi_stim_configs],
+            'left_background_weight': [cfg.dict()['background_weight'][0] for cfg in multi_stim_configs],
+            'right_background_weight': [cfg.dict()['background_weight'][1] for cfg in multi_stim_configs],
+            'left_seed': [cfg.dict()['seed'][0] for cfg in multi_stim_configs],
+            'right_seed': [cfg.dict()['seed'][1] for cfg in multi_stim_configs],
+            'left_duration_tol': [cfg.dict()['duration_tol'][0] for cfg in multi_stim_configs],
+            'right_duration_tol': [cfg.dict()['duration_tol'][1] for cfg in multi_stim_configs],
+            'left_normalise': [cfg.dict()['normalise'][0] for cfg in multi_stim_configs],
+            'right_normalise': [cfg.dict()['normalise'][1] for cfg in multi_stim_configs],
+            'sync': [cfg.dict()['validate_as_sync'] for cfg in multi_stim_configs],
+            'matched': [cfg.dict()['validate_as_matched'] for cfg in multi_stim_configs]})
 
         return {'left': {'x': np.expand_dims(left_x, axis=2),
                          'x_mask': np.expand_dims(left_x_indicators, axis=2),
@@ -178,26 +216,27 @@ class MultiTwoGapStim:
                           'y_dec': right_y_dec,
                           'configs': right_configs},
                 'agg': {'y_rate': agg_y_rate,
-                        'y_dec': agg_y_dec}}
+                        'y_dec': agg_y_dec},
+                'summary': summary}
 
 
 if __name__ == "__main__":
-    from msi_models.stim.multi_two_gap.multi_two_gap_templates import (template_matched, template_sync,
-                                                                       template_unmatched)
+    from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
 
-    multi_stim_unmatched = MultiTwoGapStim(template_unmatched(cache=False))
+    multi_stim_unmatched = MultiTwoGapStim(MultiTwoGapTemplate["unmatched_async"].set_options().build())
+
     multi_stim_unmatched.y
     multi_stim_unmatched.plot(show=True)
 
-    multi_stim_matched = MultiTwoGapStim(template_matched(cache=True))
-    multi_stim_matched.y
+    multi_stim_matched = MultiTwoGapStim(MultiTwoGapTemplate["matched_async"].set_options().build())
+    multi_stim_matched.y_objs
     multi_stim_matched.plot(show=True)
 
-    multi_stim_sync = MultiTwoGapStim(template_sync(cache=True))
-    multi_stim_sync.y
+    multi_stim_sync = MultiTwoGapStim(MultiTwoGapTemplate["matched_sync"].set_options().build())
+    multi_stim_sync.y_objs
     multi_stim_sync.plot(show=True)
 
-    MultiTwoGapStim.generate(template_sync,
+    MultiTwoGapStim.generate(templates=[MultiTwoGapTemplate["matched_sync"], MultiTwoGapTemplate["matched_async"]],
                              template_kwargs={"duration": 1300,
                                               "background_mag": 0.09,
                                               "duration_tol": 0.5})

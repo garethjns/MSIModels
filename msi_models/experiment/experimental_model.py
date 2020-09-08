@@ -1,46 +1,54 @@
+import gc
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union, List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
+from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
 from msi_models.models.keras_sk_base import KerasSKBase
+from msi_models.stimset.multi_channel import MultiChannel
 
 
 @dataclass
 class ExperimentalModel:
-    model: KerasSKBase
+    model: Union[UnisensoryClassifier, MultisensoryClassifier]
     name: str = "unnamed_model"
 
     def __init__(self, model: KerasSKBase,
                  name: str = "unnamed_model"):
         self.name = name
         self.model = model
-        self.preds_train: Dict[str, np.ndarray] = None
-        self.preds_test: Dict[str, np.ndarray] = None
+        self.preds_train: Union[None, Dict[str, np.ndarray]] = None
+        self.preds_test: Union[None, Dict[str, np.ndarray]] = None
 
         self.run_id: int
         self.results: pd.DataFrame = pd.DataFrame()
 
-    def fit(self, data: ExperimentalDataset,
+    def fit(self, data: MultiChannel,
             validation_split: float = 0.4, **kwargs):
-        self.model.fit(data.stimset.x_train, data.stimset.y_train,
-                       shuffle=True,
-                       epochs=self.model.epochs,
-                       validation_split=validation_split,
+        model_outputs = self.model._loss_weights
+
+        self.model.fit(data.x_train, {k: data.y_train[k] for k in model_outputs},
+                       # Only input ys used in losses
+                       validation_split=validation_split, shuffle=True,
                        **kwargs)
 
-    def predict(self, data: ExperimentalDataset) -> Tuple[Dict[str, np.ndarray],
-                                                          Dict[str, np.ndarray]]:
-        train_preds = self._predict_batches(data.stimset.x_train)
-        test_preds = self._predict_batches(data.stimset.x_test)
+    def predict(self, data: MultiChannel) -> Tuple[Dict[str, np.ndarray],
+                                                   Dict[str, np.ndarray]]:
 
-        return train_preds, test_preds
+        if self.preds_train is None:
+            self.preds_train = self._predict_batches(data.x_train)
+
+        if self.preds_test is None:
+            self.preds_test = self._predict_batches(data.x_test)
+
+        return self.preds_train, self.preds_test
 
     def _predict_batches(self, data: Dict[str, np.ndarray],
-                         chunk_size: int = 20) -> Dict[str, np.ndarray]:
+                         chunk_size: int = 1000) -> Dict[str, np.ndarray]:
 
         n = len(list(data.values())[0])
         n_chunks = int(np.ceil(n / chunk_size))
@@ -50,18 +58,107 @@ class ExperimentalModel:
             x = {k: v[chunk_i] for k, v in split_x.items()}
             preds.append(self.model.predict_dict(x))
 
+        del split_x, x
+        gc.collect()
+
         concat_preds = {}
-        for k in preds[0].keys():
-            concat_preds[k] = np.concatenate([p[k] for p in preds],
-                                             axis=0)
+        # NB: List here to force copy of dict keys so it can be popped from in loop
+        for k in list(preds[0].keys()):
+            concat_preds[k] = np.concatenate([p.pop(k) for p in preds], axis=0)
+            gc.collect()
 
         return concat_preds
 
+    def calc_prop_fast(self, data: MultiChannel,
+                       type_key: str = 'type', rate_key: str = 'agg_y_rate') -> List[pd.DataFrame]:
+        train_df, test_df = self.report(data)
+
+        return [df[[type_key, rate_key, 'preds_dec']].groupby([rate_key, type_key]).mean().reset_index(drop=False)
+                for df in [train_df, test_df]]
+
+    def plot_prop_fast(self, data: MultiChannel, type_key='type', rate_key: str = 'agg_y_rate'):
+        train_pf, test_pf = self.calc_prop_fast(data, type_key=type_key, rate_key=rate_key)
+
+        rates = train_pf[rate_key].unique()
+        typs = np.sort(data.summary.type.unique())
+        n_subplots = len(typs)
+        fig, axs = plt.subplots(ncols=n_subplots, figsize=(2.5 * n_subplots, 8))
+        for ai, (ax, ty) in enumerate(zip(axs, typs)):
+            for name, df in zip(['train', 'test'], [train_pf, test_pf]):
+                df_subset = df.loc[df.type == ty, [rate_key, 'preds_dec']]
+                ax.plot(df_subset[rate_key], df_subset.preds_dec, label=name)
+
+            ax.set_title(f"Type: {ty}", fontweight='bold')
+            ax.set_xlim([min(rates) - 1, max(rates) + 1])
+            ax.set_ylim([0, 1])
+            ax.set_xlabel('Rate, Hz', fontweight='bold')
+            if ai == 0:
+                ax.set_ylabel('Prop fast decision', fontweight='bold')
+                ax.legend(title='Set')
+
+        plt.suptitle(self.model.integration_type.capitalize(), fontweight='bold')
+        fig.tight_layout()
+        plt.show()
+
+    def _plot_for_intermediate_model(self, data: MultiChannel, row: int) -> plt.Figure:
+
+        n_side_plots = len(self.model.left_layers.values()) + len(self.model.left_output_layers.values())
+        n_combined_plots = len(self.model.combined_layers.values()) + len(self.model.combined_output_layers.values())
+        n_plots = n_side_plots + n_combined_plots
+
+        fig = plt.figure(figsize=(8, n_plots * 3))
+        gs = fig.add_gridspec(n_plots, 2)
+
+        # Side stim inputs
+        row_idx = 0
+        for side_idx, side in enumerate(['left', 'right']):
+            ax = fig.add_subplot(gs[row_idx, side_idx])
+            ax.plot(data.x_test[f"{side}_x"][row])
+            ax.set_title(f"{side.capitalize()} rate: {data.y_test[f'{side}_y_rate'][row]} "
+                         f"({data.y_test[f'{side}_y_dec'][row]})")
+
+        # Side intermediate layers
+        start_row_idx = row_idx + 1
+        for ri, layer_key in enumerate(self.model.left_layers.keys()):
+            row_idx = start_row_idx + ri
+            for side_idx, side in enumerate(['left', 'right']):
+                ax = fig.add_subplot(gs[row_idx, side_idx])
+                ax.plot(self.preds_test[f"{side}_{layer_key}"][row], linewidth=0.3)
+                ax.set_title(f"{side.capitalize()} {layer_key}")
+
+        # Side output layers
+        start_row_idx = row_idx + 1
+        for ri, layer_key in enumerate(self.model.left_output_layers.keys()):
+            row_idx = start_row_idx + ri
+            for side_idx, side in enumerate(['left', 'right']):
+                ax = fig.add_subplot(gs[row_idx, side_idx])
+                ax.bar(x=[0], height=[float(self.preds_test[f"{side}_{layer_key}"][row])])
+                ax.set_ylim([0, 20])
+                ax.set_title(f"{side.capitalize()} {layer_key}")
+
+        # Combined layers
+        start_row_idx = row_idx + 1
+        for ri, layer_key in enumerate(self.model.combined_layers.keys()):
+            row_idx = start_row_idx + ri
+            ax = fig.add_subplot(gs[row_idx, :])
+            ax.plot(self.preds_test[f"{layer_key}"][row], linewidth=0.3)
+            ax.set_title(f"Combined {layer_key}")
+
+        # Combined output layers
+        row_idx += 1
+        ax = fig.add_subplot(gs[row_idx, :])
+        ax.bar(['slow', 'fast'], self.preds_test["agg_y_dec"][row])
+        ax.set_title(f"Predicted rate: {self.preds_test['agg_y_rate'][row]} "
+                     f"({self.preds_test['agg_y_dec'][row]})")
+
+        fig.tight_layout()
+
+        return fig
+
     def plot_example(self,
-                     data: ExperimentalDataset,
+                     data: MultiChannel,
                      show: bool = True,
-                     dec_key: str = "y_dec",
-                     y_layer: str = "conv_1",
+                     dec_key: str = "agg_y_dec",
                      mistake: bool = False):
         """
         Plot a random example from the test set, with output from an early conv layer.
@@ -70,40 +167,39 @@ class ExperimentalModel:
         TODO: Upgrade to work with subplots for multisensory would be nice.
         """
 
-        train_preds, test_preds = self.predict(data)
+        self.predict(data)
 
         if mistake:
-            mistakes = ~((train_preds[dec_key][:, 1] > 0.5)
-                         == (data.stimset.y_test[dec_key][:, 1].astype(bool)))
+            mistakes = ~((self.preds_test[dec_key][:, 1] > 0.5)
+                         == (data.y_test[dec_key][:, 1].astype(bool)))
             row = np.random.choice(np.where(mistakes)[0])
         else:
-            row = np.random.choice(range(0, test_preds[dec_key].shape[0]))
+            row = np.random.choice(range(0, self.preds_test[dec_key].shape[0]))
 
-        for k, v in data.stimset.y_test.items():
-            if k in test_preds.keys():
-                print(f"True: {k}: {v[row]}")
-                print(f"Preds: {k}: {test_preds[k][row]}")
-
-        for v in data.stimset.x_test.values():
-            plt.plot(v[row])
-
-        plt.plot(test_preds[y_layer][row])
+        self._plot_for_intermediate_model(data, row)
 
         if show:
             plt.show()
 
-    def report(self, data: ExperimentalDataset) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def report(self, data: MultiChannel) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
         train_preds, test_preds = self.predict(data)
 
-        train_df = pd.DataFrame({'rate_output': data.stimset.y_train["y_rate"],
-                                 'preds_rate': train_preds["y_rate"].squeeze(),
-                                 'dec_output': data.stimset.y_train["y_dec"][:, 1],
-                                 'preds_dec': train_preds["y_dec"][:, 1]})
+        dfs = []
+        for summ, d, preds in zip([data.summary_train, data.summary_test],
+                                  [data.y_train, data.y_test],
+                                  [train_preds, test_preds]):
+            report_df = pd.DataFrame({'left_y_rate': d["left_y_rate"],
+                                      'right_y_rate': d["right_y_rate"],
+                                      'agg_y_rate': d["agg_y_rate"],
+                                      'preds_rate': preds["agg_y_rate"].squeeze(),
+                                      'left_y_dec': d["left_y_dec"][:, 1],
+                                      'right_y_dec': d["right_y_dec"][:, 1],
+                                      'agg_y_dec': d["agg_y_dec"][:, 1],
+                                      'preds_dec': preds["agg_y_dec"][:, 1]},
+                                     index=summ.index)
 
-        test_df = pd.DataFrame({'rate_output': data.stimset.y_test["y_rate"],
-                                'preds_rate': test_preds["y_rate"].squeeze(),
-                                'dec_output': data.stimset.y_test["y_dec"][:, 1],
-                                'preds_dec': test_preds["y_dec"][:, 1]})
+            merged_df = report_df.merge(summ, left_index=True, right_index=True)
+            dfs.append(merged_df)
 
-        return train_df, test_df
+        return tuple(dfs)
