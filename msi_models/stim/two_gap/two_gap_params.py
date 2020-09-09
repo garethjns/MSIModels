@@ -37,10 +37,11 @@ class TwoGapParams(BaseModel):
     :param seed: Int to generate numpy seed.
     :param cache: Bool to turn caching of generated stim on or off
     :param duration_tol: Acceptable deviation of total duration of selected gap combination, as proportion of duration.
+    :param normalise: Whether or not to normalise the magnitude of the stim to between 0 -> 1
     """
     duration: PositiveInt
     event: Union[partial, Callable]
-    n_events: PositiveInt
+    n_events: int
     background: Union[partial, Callable]
     gap_1: Union[partial, Callable]
     gap_2: Union[partial, Callable]
@@ -48,6 +49,7 @@ class TwoGapParams(BaseModel):
     seed: Union[PositiveInt, None] = None
     cache: bool = True
     duration_tol: float = 0.3
+    normalise: bool = False
 
     class Config:
         """Allow setting of partial type."""

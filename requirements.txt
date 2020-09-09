@@ -13,4 +13,6 @@ tables
 tqdm
 scikit-learn
 mlflow
-scipy
+flake8
+pytest
+coverage

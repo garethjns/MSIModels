@@ -5,12 +5,12 @@ from typing import List, Union
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from pydantic import BaseModel, root_validator, PositiveInt, validator, FilePath
 
 from msi_models.exceptions.params import IncompatibleParametersException, InvalidParameterException
 from msi_models.stimset.channel import Channel
 from msi_models.stimset.channel import ChannelConfig
-
 
 os.sep = '/'
 
@@ -88,6 +88,10 @@ class MultiChannel:
 
         self.y_keys = [os.path.join(self.config.key, k).replace('\\', '/') for k in self.config.y_keys]
 
+        self.summary: pd.DataFrame = pd.read_hdf(self.config.path, key='summary', mode='r')
+        self.summary_train = self.summary.iloc[self.channels[0].train_idx]
+        self.summary_test = self.summary.iloc[self.channels[0].test_idx]
+
     @property
     def x(self):
         x = {}
@@ -133,21 +137,32 @@ class MultiChannel:
 
         return ys
 
-    def plot_example(self,
-                     show: bool = True):
+    def plot_example(self, show: bool = True):
         row = np.random.choice(range(0, self.n))
         for k, v in self.y.items():
             print(f"{k}: {v[row]}")
 
-        for v in self.x.values():
-            plt.plot(v[row])
+        fig, axs = plt.subplots(nrows=2, ncols=1)
+        for i, (c, ax) in enumerate(zip(["left", "right"], axs)):
+            ax.plot(self.x[f'{c}_x'][row], label=f'Signal (x)')
+            ax.plot(self.x[f'{c}_x_mask'][row], label=f'Events mask (y)')
+            ax.set_title(f'"{c.capitalize()}" channel, rate: {self.y[f"{c}_y_rate"][row]}, '
+                         f'decision: {self.y[f"{c}_y_dec"][row]}', fontweight='bold')
+            ax.set_ylabel('Mag', fontweight='bold')
+            if i == 1:
+                ax.set_xlabel('Time', fontweight='bold')
+                ax.legend(loc='lower right')
+
+        fig.suptitle(f"Type: {self.summary.loc[row, 'type']}, aggregated rate: {self.y['agg_y_rate'][row]}, "
+                     f"decision {self.y['agg_y_dec'][row]}", fontweight='bold')
+        fig.tight_layout()
 
         if show:
             plt.show()
 
 
 if __name__ == "__main__":
-    path = "data/sample_multisensory_data_matched.hdf5"
+    path = "../../data/sample_multisensory_data_matched_250k.hdf5"
     common_kwargs = {"path": path,
                      "train_prop": 0.8,
                      "x_keys": ["x", "x_mask"],

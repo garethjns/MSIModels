@@ -77,6 +77,6 @@ class TestTwoGapStim(unittest.TestCase):
         # Event and background noise will differ
         self.assertFalse(stim.params.cache)
         for y1, y2 in zip(np.abs(y_first_call), np.abs(y_second_call)):
-            self.assertAlmostEqual(y1, y2, 1)
+            self.assertAlmostEqual(y1, y2, -1)
         for y1, y2 in zip(y_mask_first_call, y_mask_second_call):
             self.assertAlmostEqual(y1, y2, 7)

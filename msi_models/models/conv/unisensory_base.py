@@ -2,7 +2,6 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 from msi_models.models.keras_sk_base import KerasSKBase
-from msi_models.stimset.channel import Channel
 
 
 class UnisensoryBase(KerasSKBase):
@@ -10,15 +9,15 @@ class UnisensoryBase(KerasSKBase):
              "conv_2": "mse",
              "flatten_1": "mse",
              "flatten_2": "mse",
-             "dec_output": "categorical_crossentropy",
-             "rate_output": "mse"}
+             "y_dec": "categorical_crossentropy",
+             "y_rate": "mse"}
     _loss_weights = {"conv_1": 0,
                      "conv_2": 0,
                      "flatten_1": 0,
                      "flatten_2": 0,
-                     "dec_output": 0.5,
-                     "rate_output": 0.5}
-    _metrics = {"dec_output": ['accuracy']}
+                     "y_dec": 0.5,
+                     "y_rate": 0.5}
+    _metrics = {"y_dec": ['accuracy']}
 
     def __init__(self,
                  opt: str = 'adam',
@@ -52,7 +51,7 @@ class UnisensoryBase(KerasSKBase):
     def build_model(self,
                     input_length: int = 650):
         x_1 = layers.Input(shape=(self.input_length, 1),
-                               name="x_1")
+                           name="x_1")
 
         conv_1 = layers.Conv1D(filters=self.conv_1_filters,
                                kernel_size=self.conv_1_kernel_size,
@@ -75,11 +74,11 @@ class UnisensoryBase(KerasSKBase):
 
         rate_output = layers.Dense(1,
                                    activation='relu',
-                                   name='rate_output')(fc_2)
+                                   name='y_rate')(fc_2)
 
         dec_output = layers.Dense(2,
                                   activation='softmax',
-                                  name="dec_output")(fc_2)
+                                  name="y_dec")(fc_2)
 
         self.model = keras.Model(inputs=x_1,
                                  outputs=[rate_output, dec_output, conv_1, conv_2, flatten_1, flatten_2],

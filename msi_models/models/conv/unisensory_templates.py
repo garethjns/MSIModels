@@ -4,23 +4,23 @@ from msi_models.models.conv.unisensory_base import UnisensoryBase
 
 
 class UnisensoryClassifier(UnisensoryBase):
-    _loss = {"dec_output": "categorical_crossentropy",
-             "rate_output": "mse"}
-    _loss_weights = {"dec_output": 0.5,
-                     "rate_output": 0.5}
-    _metrics = {"dec_output": ['accuracy']}
+    _loss = {"y_dec": "categorical_crossentropy",
+             "y_rate": "mse"}
+    _loss_weights = {"y_dec": 0.5,
+                     "y_rate": 0.5}
+    _metrics = {"y_dec": ['accuracy']}
 
 
 class UnisensoryEventDetector(UnisensoryBase):
     _loss = {"conv_1": "mse",
              "conv_2": "mse",
-             "dec_output": "categorical_crossentropy",
-             "rate_output": "mse"}
+             "y_dec": "categorical_crossentropy",
+             "y_rate": "mse"}
     _loss_weights = {"conv_1": 0,
                      "conv_2": 0,
-                     "dec_output": 0.5,
-                     "rate_output": 0.5}
-    _metrics = {"dec_output": ['accuracy']}
+                     "y_dec": 0.5,
+                     "y_rate": 0.5}
+    _metrics = {"y_dec": ['accuracy']}
 
 
 if __name__ == "__main__":
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     import pandas as pd
     import numpy as np
 
-    with h5py.File('data/unisensory_data.hdf5', 'r') as f:
+    with h5py.File('scripts/data/sample_unisensory_data_hard.hdf5', 'r') as f:
         x = f['x'][:, :, :]
         x_indicators = f['x_indicators'][:, :, :]
         y_rate = f['y_rate'][:]
@@ -39,11 +39,11 @@ if __name__ == "__main__":
     test_idx = shuffled_idx[int(x.shape[0] * 0.8)::]
 
     x_train = {'input_1': x[train_idx, :, :]}
-    y_train = {'rate_output': y_rate[train_idx],
-               'dec_output': y_dec[train_idx, :]}
+    y_train = {'y_rate': y_rate[train_idx],
+               'y_dec': y_dec[train_idx, :]}
     x_test = {'input_1': x[test_idx, :, :]}
-    y_test = {'rate_output': y_rate[test_idx],
-              'dec_output': y_dec[test_idx, :]}
+    y_test = {'y_rate': y_rate[test_idx],
+              'y_dec': y_dec[test_idx, :]}
 
     mod = UnisensoryClassifier(opt='adam')
     mod.fit(x_train, y_train,

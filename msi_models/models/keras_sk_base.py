@@ -4,8 +4,8 @@ from typing import Dict, List
 import numpy as np
 import tensorflow as tf
 from sklearn.base import BaseEstimator
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow_core.python.keras.api._v2 import keras
+from tensorflow import keras
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 
 
 class KerasSKBase(abc.ABC, BaseEstimator):
@@ -14,29 +14,31 @@ class KerasSKBase(abc.ABC, BaseEstimator):
     _metrics: Dict[str, str]
     model = None
 
+    opt: str
+    lr: float
+    es_patience: int
+    es_loss: str
+    epochs: int
+    batch_size: int
+
     def __init__(self, opt: str = 'adam',
                  lr: float = 0.0002,
                  es_patience: int = 100,
                  es_loss: str = 'val_loss',
                  epochs: int = 1000,
                  batch_size: int = 2000):
-        self.set_params(opt=opt,
-                        lr=lr,
-                        es_patience=es_patience,
-                        es_loss=es_loss,
-                        epochs=epochs,
-                        batch_size=batch_size)
+        self.set_params(opt=opt, lr=lr, es_patience=es_patience, es_loss=es_loss, epochs=epochs, batch_size=batch_size)
 
     @abc.abstractmethod
     def build_model(self):
         pass
 
-    def plot_dag(self):
+    def plot_dag(self) -> None:
         if self.model is None:
             self.build_model()
-        keras.utils.plot_model(self.model, 'mod.png')
+        keras.utils.plot_model(self.model, f"{self.integration_type}_mod.png", show_shapes=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.model is not None:
             return self.model.summary()
         else:
@@ -45,7 +47,7 @@ class KerasSKBase(abc.ABC, BaseEstimator):
     def fit_generator(self, *args, **kwargs):
         self.model.fit_generator(*args, **kwargs)
 
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, **kwargs) -> None:
 
         if self.opt.lower() == "RMSprop":
             opt = keras.optimizers.RMSprop(lr=self.lr)
@@ -55,19 +57,15 @@ class KerasSKBase(abc.ABC, BaseEstimator):
             opt = keras.optimizers.Adam(lr=self.lr)
 
         self.build_model()
-        self.model.compile(optimizer=opt,
-                           loss=self._loss,
-                           loss_weights=self._loss_weights,
-                           metrics=self._metrics)
+        self.model.compile(optimizer=opt, loss=self._loss, loss_weights=self._loss_weights, metrics=self._metrics)
 
-        es = EarlyStopping(monitor=self.es_loss,
-                           mode='min',
-                           verbose=2,
-                           patience=self.es_patience)
+        es = EarlyStopping(monitor=self.es_loss, mode='min', verbose=2, patience=self.es_patience)
+        tb = TensorBoard(histogram_freq=5)
 
+        print(self.batch_size)
         self.model.fit(*args,
                        batch_size=self.batch_size,
-                       callbacks=[es], **kwargs)
+                       callbacks=[es, tb], **kwargs)
 
         tf.keras.backend.clear_session()
 

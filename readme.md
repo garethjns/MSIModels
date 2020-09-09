@@ -91,11 +91,11 @@ Generating multisensory (two channel) using templates.
 
 ```python
 from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
-from msi_models.stim.multi_two_gap.multi_two_gap_templates import template_sync
+from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
 
-MultiTwoGapStim.generate(template=template_sync,
+MultiTwoGapStim.generate(templates=MultiTwoGapTemplate['matched_async'],
                          fs=500,
-                         n=50,
+                         n=200,
                          batch_size=10,
                          fn='data/sample_multisensory_data_sync.hdf5',
                          n_jobs=-1,
@@ -105,21 +105,23 @@ MultiTwoGapStim.generate(template=template_sync,
 ```
 
 Additional examples:
-scripts/generate_multisensory_data.py  
-scripts/generate_unisensory_data.py  
+scripts/generate_single_stim_from_template_examples - example stims
+scripts/generate_single_type_multisensory_data - generate data to files
+scripts/generate_multi_type_multisensory_data - generate multiple datatypes to one file to create training and test sets
+scripts/generate_unisensory_data.py - generate unisensory data
 
 ## Single model fitting
 
-Model templates are available in msi_models.models.conv.multisensory_templates, which define combinations of loss weights to create a binary classifier, event detector, etc. MultisensoryClassifier creates a model aims to correctly predict rate and the "fast"/"slow" decision.
+Model templates are available in msi_models.models.conv.multisensory_templates, and define combinations of loss weights to create a binary classifier, event detector, etc. MultisensoryClassifier creates a model aims to correctly predict rate and the "fast"/"slow" decision.
 
 The MultisensoryClassifier uses the agg/y_rate and agg/y_dec as output, targets, but also calculates the loss for the against the unisensory targets, eg left/y_rate and left/y_dec so the performance of the individual outputs can also be monitored.
 
-The channels are first defined, then combined into a MultiChannel object to feed the model.
+The channels are first defined, then combined into a MultiChannel object to feed the model with pre-generated data (stored in hdf5), see generations scripts above.
 
-Using previously generated data (see above or use the small example sets in data/, although these aren't big enough to learn anything useful):
+````python
 ````python
 import os
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
 
@@ -170,11 +172,12 @@ See [View results](#view_results) section below to setup up MLflow to view the e
 scripts/run_single_experiment.py
 
 ```python
+```python
 import os
 from msi_models.experiment.experimental_run import ExperimentalRun
 from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig
 
@@ -224,7 +227,7 @@ In the MLflow logs, two experiments are created - one with the supplied name and
 from msi_models.experiment.experiment import Experiment
 from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
-from msi_models.models.conv.multisensory_templates import MultisensoryClassifier
+from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
 from msi_models.stimset.multi_channel import MultiChannelConfig
 
@@ -283,7 +286,3 @@ mlflow server
 2) View at http://localhost:5000
 
 
-# TODO:
- - Current models are prototypes and vary wildly in the total number of trainable parameters.
- - Model eval - SHAP
-  
