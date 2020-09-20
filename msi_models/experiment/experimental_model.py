@@ -1,24 +1,23 @@
 import gc
 from dataclasses import dataclass
-from typing import Dict, Tuple, Union, List
+from typing import Dict, Tuple, Union, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from fit_psyche.psychometric_curve import PsychometricCurve
 
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
-from msi_models.models.keras_sk_base import KerasSKBase
 from msi_models.stimset.multi_channel import MultiChannel
 
 
 @dataclass
 class ExperimentalModel:
     model: Union[UnisensoryClassifier, MultisensoryClassifier]
-    name: str = "unnamed_model"
+    name: str
 
-    def __init__(self, model: KerasSKBase,
-                 name: str = "unnamed_model"):
+    def __init__(self, model: Union[UnisensoryClassifier, MultisensoryClassifier], name: str = "unnamed_model") -> None:
         self.name = name
         self.model = model
         self.preds_train: Union[None, Dict[str, np.ndarray]] = None
@@ -27,17 +26,19 @@ class ExperimentalModel:
         self.run_id: int
         self.results: pd.DataFrame = pd.DataFrame()
 
-    def fit(self, data: MultiChannel,
-            validation_split: float = 0.4, **kwargs):
+    def fit(self, data: MultiChannel, validation_split: float = 0.4, **kwargs) -> None:
         model_outputs = self.model._loss_weights
 
         self.model.fit(data.x_train, {k: data.y_train[k] for k in model_outputs},
                        # Only input ys used in losses
-                       validation_split=validation_split, shuffle=True,
-                       **kwargs)
+                       validation_split=validation_split, shuffle=True, **kwargs)
 
-    def predict(self, data: MultiChannel) -> Tuple[Dict[str, np.ndarray],
-                                                   Dict[str, np.ndarray]]:
+    def predict(self, data: MultiChannel) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+        """
+        Predict for a dataset, seperately for test and train.
+
+        Preds are cached until .clear is called.
+        """
 
         if self.preds_train is None:
             self.preds_train = self._predict_batches(data.x_train)
@@ -47,8 +48,7 @@ class ExperimentalModel:
 
         return self.preds_train, self.preds_test
 
-    def _predict_batches(self, data: Dict[str, np.ndarray],
-                         chunk_size: int = 1000) -> Dict[str, np.ndarray]:
+    def _predict_batches(self, data: Dict[str, np.ndarray], chunk_size: int = 1000) -> Dict[str, np.ndarray]:
 
         n = len(list(data.values())[0])
         n_chunks = int(np.ceil(n / chunk_size))
@@ -69,15 +69,55 @@ class ExperimentalModel:
 
         return concat_preds
 
-    def calc_prop_fast(self, data: MultiChannel,
-                       type_key: str = 'type', rate_key: str = 'agg_y_rate') -> List[pd.DataFrame]:
-        train_df, test_df = self.report(data)
+    @staticmethod
+    def calc_psyche_curve(df: pd.DataFrame, rate_key: str = 'agg_y_rate', type_key: str = 'type') -> pd.DataFrame:
 
-        return [df[[type_key, rate_key, 'preds_dec']].groupby([rate_key, type_key]).mean().reset_index(drop=False)
-                for df in [train_df, test_df]]
+        pc_coefs = []
+        for ty in df.type.unique():
+            try:
+                pc = PsychometricCurve().fit(df.loc[df.type == ty, rate_key], df.loc[df[type_key] == ty, 'preds_dec'])
+                coefs: Dict[str, Any] = pc.coefs_  # This typehint is missing in FitPsyche package
+                coefs.update({'model': pc})
+            except np.linalg.LinAlgError:
+                coefs = {}
 
-    def plot_prop_fast(self, data: MultiChannel, type_key='type', rate_key: str = 'agg_y_rate'):
-        train_pf, test_pf = self.calc_prop_fast(data, type_key=type_key, rate_key=rate_key)
+            pc_coefs.append(pd.DataFrame(coefs, index=[ty]))
+
+        curves = pd.concat(pc_coefs, axis=0)
+        curves.index.name = type_key
+
+        return curves
+
+    def calc_psyche_curves(self, data: MultiChannel,
+                           type_key: str = 'type', rate_key: str = 'agg_y_rate') -> pd.DataFrame:
+        df = self.report(data)
+
+        curves = []
+        for set_name in ["train", "test"]:
+            cur = self.calc_psyche_curve(df.loc[df['set'] == set_name, :], rate_key=rate_key, type_key=type_key)
+            cur.loc[:, 'set'] = set_name
+            curves.append(cur)
+
+        return pd.concat(curves, axis=0).reset_index(drop=False)
+
+    @staticmethod
+    def calc_prop_fast(df: pd.DataFrame, type_key: str = 'type', rate_key: str = 'agg_y_rate') -> pd.DataFrame:
+        return df[[type_key, rate_key, 'preds_dec']].groupby([rate_key, type_key]).mean().reset_index(drop=False)
+
+    def calc_prop_fasts(self, data: MultiChannel,
+                        type_key: str = 'type', rate_key: str = 'agg_y_rate') -> pd.DataFrame:
+        df = self.report(data)
+
+        pfs = []
+        for set_name in ["train", "test"]:
+            pf = self.calc_prop_fast(df.loc[df['set'] == set_name, :], type_key=type_key, rate_key=rate_key)
+            pf.loc[:, 'set'] = set_name
+            pfs.append(pf)
+
+        return pd.concat(pfs, axis=0)
+
+    def plot_prop_fast(self, data: MultiChannel, type_key='type', rate_key: str = 'agg_y_rate') -> None:
+        train_pf, test_pf = self.calc_prop_fasts(data, type_key=type_key, rate_key=rate_key)
 
         rates = train_pf[rate_key].unique()
         typs = np.sort(data.summary.type.unique())
@@ -155,11 +195,8 @@ class ExperimentalModel:
 
         return fig
 
-    def plot_example(self,
-                     data: MultiChannel,
-                     show: bool = True,
-                     dec_key: str = "agg_y_dec",
-                     mistake: bool = False):
+    def plot_example(self, data: MultiChannel, show: bool = True, dec_key: str = "agg_y_dec",
+                     mistake: bool = False) -> None:
         """
         Plot a random example from the test set, with output from an early conv layer.
 
@@ -181,14 +218,15 @@ class ExperimentalModel:
         if show:
             plt.show()
 
-    def report(self, data: MultiChannel) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def report(self, data: MultiChannel) -> pd.DataFrame:
 
         train_preds, test_preds = self.predict(data)
 
         dfs = []
-        for summ, d, preds in zip([data.summary_train, data.summary_test],
-                                  [data.y_train, data.y_test],
-                                  [train_preds, test_preds]):
+        for summ, d, preds, set_name in zip([data.summary_train, data.summary_test],
+                                            [data.y_train, data.y_test],
+                                            [train_preds, test_preds],
+                                            ['train', 'test']):
             report_df = pd.DataFrame({'left_y_rate': d["left_y_rate"],
                                       'right_y_rate': d["right_y_rate"],
                                       'agg_y_rate': d["agg_y_rate"],
@@ -200,6 +238,35 @@ class ExperimentalModel:
                                      index=summ.index)
 
             merged_df = report_df.merge(summ, left_index=True, right_index=True)
+            merged_df.loc[:, 'set'] = set_name
             dfs.append(merged_df)
 
-        return tuple(dfs)
+        return pd.concat(dfs, axis=0)
+
+    def evaluate_performance(self, data: MultiChannel) -> pd.DataFrame:
+        report_df = self.report(data)
+
+        # Accuracy
+        report_df.loc[:, 'dec_accuracy'] = report_df.agg_y_dec == (report_df.preds_dec >= 0.5)
+        perf = report_df[['set', 'dec_accuracy']].groupby("set").mean()
+
+        # MSE
+        sets = ['train', 'test']
+        loss = pd.DataFrame({'rate_loss': [self._mse(report_df.loc[report_df['set'] == k, 'agg_y_rate'],
+                                                     report_df.loc[report_df['set'] == k, 'preds_rate'])
+                                           for k in sets]}, index=sets)
+
+        perf_df = pd.concat((perf, loss), axis=1)
+        perf_df.index.name = 'set'
+
+        return perf_df.reset_index(drop=False)
+
+    @staticmethod
+    def _mse(y_true, y_pred) -> float:
+        return ((y_true - y_pred) ** 2).mean()
+
+    def clear(self) -> None:
+        """Clear preds saved in self.preds_train and self.preds_test."""
+        self.preds_train = None
+        self.preds_test = None
+        gc.collect()

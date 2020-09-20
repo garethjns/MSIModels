@@ -1,98 +1,108 @@
 import copy
+import warnings
 from dataclasses import dataclass
-from typing import Dict, List, Any
+from typing import Dict, List, Tuple
 
 import mlflow
-import numpy as np
-import pandas as pd
 import tensorflow as tf
-from sklearn.metrics import accuracy_score, mean_squared_error
+from tqdm import tqdm
 
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
+from msi_models.experiment.experimental_results import ExperimentalResults
+from msi_models.stimset.multi_channel import MultiChannel
 
 
 @dataclass
 class ExperimentalRun:
-    data: ExperimentalDataset
+    """Handles repetition and evaluation for a data and model combination."""
+    data: MultiChannel
     model: ExperimentalModel
     name: str = "unnamed_experiment_run"
     n_reps: int = 5
+    n_epochs: int = 2000
     validation_split: float = 0.4
 
-    path: str = None  # TODO: Output path, but not saving anything yet.
-    preds_y_train: Dict[str, np.ndarray] = None
-    preds_y_test: Dict[str, np.ndarray] = None
-    run_results: List[Dict[str, float]] = None
-
-    _mlflow_run_ids: List[int] = None
-    _mlflow_exp_id: str = None
-    _models: List[ExperimentalModel] = None
-    _data_samples: List[ExperimentalDataset] = None
-
-    def __post_init__(self):
-        self._mlflow_exp_id = mlflow.set_experiment(self.name)
-        self._mlflow_run_ids = []
-        self._models = []
-        self._data_samples = []
+    def __post_init__(self) -> None:
         self.run_results = []
+        self.done: bool = False
+        self.results = ExperimentalResults()
+
+        self._mlflow_run_ids: Dict[Tuple[int, int], int] = {}
+        self._models: List[ExperimentalModel] = []
 
         self._prepare_runs()
 
-    def _prepare_runs(self):
+    def _prepare_runs(self) -> None:
         for r in range(self.n_reps):
             self._models.append(copy.deepcopy(self.model))
-            data_sample = copy.deepcopy(self.data)
-            data_sample.build(seed=r)
-            self._data_samples.append(data_sample)
 
-    def run(self):
-        for r in range(self.n_reps):
-            self._mlflow_run_ids.append(mlflow.start_run(experiment_id=self._mlflow_exp_id))
+    def run(self) -> None:
+        if self.done:
+            warnings.warn('Already run.')
 
-            self._fit(self._models[r], self._data_samples[r])
-            self.run_results.append(self._evaluate(self._models[r], self._data_samples[r]))
+        if not self.done:
+            self.results.set_data(self.data)
 
-            mlflow.log_param('rep', r)
-            self.log_common()
-            self._log_results(self.run_results[r])
-            mlflow.end_run()
+            for r in tqdm(range(self.n_reps), desc=self.name):
+                self._fit(self._models[r], self.data, epochs=self.n_epochs)
+                tf.keras.backend.clear_session()
 
-            tf.keras.backend.clear_session()
+            self.results.add_models(self._models)
+            self.done = True
 
-    def _fit(self, model, data, **kwargs):
-        model.fit(data,
-                  validation_split=self.validation_split,
-                  **kwargs)
+    def evaluate(self) -> None:
+        self.results.evaluate()
 
-    @staticmethod
-    def _evaluate(model, data) -> Dict[str, float]:
-        preds_y_train, preds_y_test = model.predict(data)
+    def plot(self) -> None:
+        self.results.plot_aggregated_results()
 
-        return {'train_rate_mse': mean_squared_error(data.stimset.y_train['agg_y_rate'],
-                                                     preds_y_train["agg_y_rate"]),
-                'test_rate_mse': mean_squared_error(data.stimset.y_test['agg_y_rate'],
-                                                    preds_y_test["agg_y_rate"]),
-                'train_dec_accuracy': accuracy_score(data.stimset.y_train['agg_y_dec'][:, 1],
-                                                     preds_y_train["agg_y_dec"][:, 1] > 0.5),
-                'test_dec_accuracy': accuracy_score(data.stimset.y_test['agg_y_dec'][:, 1],
-                                                    preds_y_test["agg_y_dec"][:, 1] > 0.5)}
+    def clear(self) -> None:
+        for mod in self._models:
+            mod.clear()
 
-    def log_common(self):
-        mlflow.log_param('dataset_name', self.data.name)
+    def _fit(self, model, data, **kwargs) -> None:
+        model.fit(data, validation_split=self.validation_split, **kwargs)
+
+    def _log_common_params(self):
         mlflow.log_param('dataset_path', self.data.config.path)
-        mlflow.log_param('model_name', self.model.name)
+        mlflow.log_param('integration_type', self.model.name.split('_')[0])
 
-    @staticmethod
-    def _log_results(results: Dict[str, Any]):
-        """Log to mlflow."""
-        mlflow.log_metrics(results)
+    def log_run(self, to: str) -> None:
+        """ Log each type of each repeat/"subject" as a run."""
 
-    @property
-    def results(self) -> pd.DataFrame:
-        return pd.concat([pd.DataFrame(r, index=[ri]) for ri, r in enumerate(self.run_results)],
-                         axis=0)
+        mlflow.set_experiment(to)
 
-    @property
-    def agg_results(self) -> pd.Series:
-        return self.results.describe()
+        for si, mod in enumerate(self._models):
+            for ty in self.results.types:
+                self._mlflow_run_ids[(si, ty)] = mlflow.start_run(run_name=f"Subject: {si}, type: {ty}")
+                self._log_common_params()
+                mlflow.log_metrics({'type': ty, 'subject': si})
+
+                # Curves
+                idx = (self.results.curves_subject.subject == si) & (self.results.curves_subject.type == ty)
+                results = self.results.curves_subject.loc[idx, :]
+                mlflow.log_metrics({'bias_train': results.loc[results['set'] == 'train', 'mean'].values[0],
+                                    'bias_test': results.loc[results['set'] == 'test', 'mean'].values[0],
+                                    'dt_train': results.loc[results['set'] == 'train', 'var'].values[0],
+                                    'dt_test': results.loc[results['set'] == 'test', 'var'].values[0]})
+
+                mlflow.end_run()
+
+    def log_summary(self, to: str) -> None:
+        """Log a single summary "run" to another experiment (such as parent Experiment)."""
+        mlflow.set_experiment(to)
+        mlflow.start_run(run_name=self.model.name)
+        self._log_common_params()
+
+        for dset in ["train", "test"]:
+            idx = self.results.model_perf_agg.index == dset
+            to_log = ['dec_accuracy_mean', 'rate_loss_mean', 'dec_accuracy_std', 'rate_loss_std']
+            mlflow.log_metrics({k: self.results.model_perf_agg.loc[idx, k].values[0] for k in to_log})
+
+            curves_df = self.results.curves_agg.reset_index(drop=False)
+            to_log = ['bias_mean', 'dt_mean', 'bias_std', 'dt_std']
+            for ty in self.results.types:
+                idx = (curves_df["set"] == dset) & (curves_df["type"] == ty)
+                mlflow.log_metrics({f"{k}_{dset}": curves_df.loc[idx, k].values[0] for k in to_log})
+
+        mlflow.end_run()

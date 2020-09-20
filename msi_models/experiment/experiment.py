@@ -1,44 +1,53 @@
-from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Union
 
-import mlflow
-import numpy as np
+from tqdm import tqdm
 
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.experiment.experimental_run import ExperimentalRun
+from msi_models.stimset.channel import ChannelConfig
+from msi_models.stimset.multi_channel import MultiChannel, MultiChannelConfig
 
 
-@dataclass
 class Experiment:
-    datasets: List[ExperimentalDataset]
-    models: List[ExperimentalModel]
-    name: str = 'unnamed_experiment'
+    def __init__(self, name: str = 'unnamed_experiment', n_reps: int = 5, n_epochs: int = 2000) -> None:
+        self.name = name
+        self.n_reps = n_reps
+        self.n_epochs = n_epochs
 
-    _runs: List[ExperimentalRun] = None
+        self.models: List[ExperimentalModel] = []
+        self.dataset: Union[None, MultiChannel] = None
+        self._runs: List[ExperimentalRun] = []
 
-    def __post_init__(self):
+    def add_model(self, mod: ExperimentalModel) -> None:
+        if mod not in self.models:
+            self.models.append(mod)
+
+    def add_data(self, path: str = "data/sample_multisensory_data_mix_hard_250k.hdf5") -> None:
+        if self.dataset is not None:
+            raise RuntimeError(f"Data already added.")
+        else:
+            common_channel_kwargs = {"path": path, "train_prop": 0.8, "x_keys": ["x", "x_mask"],
+                                     "y_keys": ["y_rate", "y_dec"]}
+
+            multi_config = MultiChannelConfig(path=path, key='agg', y_keys=common_channel_kwargs["y_keys"],
+                                              channels=[ChannelConfig(key='left', **common_channel_kwargs),
+                                                        ChannelConfig(key='right', **common_channel_kwargs)])
+            data = MultiChannel(multi_config)
+
+            self.dataset = data
+
+    def _generate_runs(self) -> None:
         self._runs = []
-        self._generate_grid()
+        for mod in self.models:
+            self._runs.append(ExperimentalRun(name=f"{self.name}_{mod.name}", model=mod, data=self.dataset,
+                                              n_reps=self.n_reps, n_epochs=self.n_epochs))
 
-    def _generate_grid(self):
-        grid = np.array(np.meshgrid(self.datasets, self.models)).T.reshape(-1, 2)
-        for d, m in grid:
-            self._runs.append(ExperimentalRun(model=m, data=d,
-                                              name=f"{self.name}_reps"))
+    def run(self) -> None:
+        self._generate_runs()
 
-    def run(self):
-        for exp_run in self._runs:
+        for exp_run in tqdm(self._runs, desc=self.name):
             exp_run.run()
-
-            mlflow.set_experiment(self.name)
-            mlflow.start_run()
-            exp_run.log_common()
-            self._log_results(exp_run.agg_results.to_dict())
-            mlflow.end_run()
-
-    def _log_results(self, results: Dict[str, Dict[str, float]]):
-        for col_name, col_vals in results.items():
-            col_vals_ = {f"{col_name}_{''.join([s for s in k if s.isalpha()])}": v for k, v in col_vals.items()}
-
-            mlflow.log_metrics(col_vals_)
+            exp_run.evaluate()
+            exp_run.plot()
+            exp_run.log_run(to=f"{self.name}")
+            exp_run.log_summary(to=f"{self.name}_summary")

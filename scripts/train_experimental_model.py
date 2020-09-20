@@ -47,7 +47,10 @@ if __name__ == "__main__":
         mod.fit(mc, epochs=1000)
         # Eval
         # mod.plot_example(mc, dec_key='agg_y_dec')
-        mod.calc_prop_fast(mc, rate_key='agg_y_rate')
+        mod.calc_prop_fasts(mc, rate_key='agg_y_rate')
+        _, test_psyche_fits = mod.calc_psyche_curves(mc, rate_key='agg_y_rate')
+        print(test_psyche_fits)
         mod.plot_prop_fast(mc, rate_key='agg_y_rate')
         train_report, test_report = mod.report(mc)
+
 

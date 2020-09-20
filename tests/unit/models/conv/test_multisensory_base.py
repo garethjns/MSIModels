@@ -18,8 +18,7 @@ class TestMultisensoryBase(unittest.TestCase):
         # Assert
         self.assertIsInstance(mod, MultisensoryBase)
         param_count = np.sum([count_params(w) for w in mod.model.trainable_weights])
-        # TODO: self.assertEqual(539163, param_count)
-        # mod.plot_dag()
+        self.assertEqual(159500, param_count)
 
     def test_intermediate_integration_model_builds(self):
         # Arrange
@@ -31,8 +30,7 @@ class TestMultisensoryBase(unittest.TestCase):
         # Assert
         self.assertIsInstance(mod, MultisensoryBase)
         param_count = np.sum([count_params(w) for w in mod.model.trainable_weights])
-        # TODO: self.assertEqual(539163, param_count)
-        # mod.plot_dag()
+        self.assertEqual(159500, param_count)
 
     def test_late_integration_model_builds(self):
         # Arrange
@@ -44,5 +42,4 @@ class TestMultisensoryBase(unittest.TestCase):
         # Assert
         self.assertIsInstance(mod, MultisensoryBase)
         param_count = np.sum([count_params(w) for w in mod.model.trainable_weights])
-        # TODO: self.assertEqual(539163, param_count)
-        # mod.plot_dag()
+        self.assertEqual(159500, param_count)
