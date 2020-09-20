@@ -78,9 +78,8 @@ class MultiTwoGapParams(BaseModel):
     def _check_if_matched_and_expected(cls, v, values, **kwargs):
         is_matched = len(np.unique(values["n_events"])) == 1
 
-        if v is not None:
-            if not is_matched == v:
-                raise IncompatibleParametersException(f"Expecting matched={is_matched}, but other params incompatible")
+        if (v is not None) and (not is_matched == v):
+            raise IncompatibleParametersException(f"Expecting matched={is_matched}, but other params incompatible")
 
         return is_matched
 
@@ -89,9 +88,8 @@ class MultiTwoGapParams(BaseModel):
         is_matched = len(np.unique(values["n_events"])) == 1
         is_sync = is_matched & len(np.unique(values["seed"])) == 1
 
-        if v is not None:
-            if not is_sync == v:
-                raise IncompatibleParametersException(f"Expecting sync={is_sync} stim, but other params incompatible")
+        if (v is not None) and (not is_sync == v):
+            raise IncompatibleParametersException(f"Expecting sync={is_sync} stim, but other params incompatible")
 
         return is_sync
 

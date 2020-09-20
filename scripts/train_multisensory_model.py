@@ -5,8 +5,10 @@ import os
 import tensorflow as tf
 
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
-from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
+from msi_models.stimset.channel_config import ChannelConfig
+from msi_models.stimset.multi_channel import MultiChannel
+from msi_models.stimset.multi_channel_config import MultiChannelConfig
+
 tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
                                                         [tf.config.experimental.VirtualDeviceConfiguration(
                                                             memory_limit=4000)])

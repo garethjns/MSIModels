@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
 from msi_models.stimset.channel import Channel
-from msi_models.stimset.channel import ChannelConfig
+from msi_models.stimset.channel_config import ChannelConfig
 
 tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
                                                         [tf.config.experimental.VirtualDeviceConfiguration(
@@ -40,9 +40,3 @@ if __name__ == "__main__":
     for i in range(10):
         print(f"Rate: {chan.y_test['y_rate'][i]} <-> {y_pred['y_rate'][i]} "
               f"| Decision: {chan.y_test['y_dec'][i]} <-> {y_pred['y_dec'][i]}")
-
-    explainer = shap.DeepExplainer(mod.model, chan.x_train["x"][0:10])
-
-    explainer = shap.KernelExplainer(lambda x: mod.predict_dict(x)['y_dec'], chan.x_train["x"][0:10, :, 0],
-                                     link="logit")
-    shap_values = explainer.shap_values(chan.x_test["x"][0:1, :, 0])

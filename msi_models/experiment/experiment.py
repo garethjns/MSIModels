@@ -4,8 +4,9 @@ from tqdm import tqdm
 
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.experiment.experimental_run import ExperimentalRun
-from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannel, MultiChannelConfig
+from msi_models.stimset.channel_config import ChannelConfig
+from msi_models.stimset.multi_channel import MultiChannel
+from msi_models.stimset.multi_channel_config import MultiChannelConfig
 
 
 class Experiment:

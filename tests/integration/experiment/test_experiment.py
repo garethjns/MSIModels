@@ -26,7 +26,7 @@ class TestExperiment(unittest.TestCase):
         MultiTwoGapStim.generate(templates=[MultiTwoGapTemplate['left_only'], MultiTwoGapTemplate['right_only'],
                                             MultiTwoGapTemplate['matched_sync'], MultiTwoGapTemplate['matched_async'],
                                             MultiTwoGapTemplate['unmatched_async']],
-                                 fs=500, n=100, batch_size=5, fn=self._tmp_data, n_jobs=5,
+                                 fs=500, n=200, batch_size=2, fn=self._tmp_data, n_jobs=5,
                                  template_kwargs={"duration": 1300, "background_mag": 0.3, "duration_tol": 0.5})
 
         self._sut = Experiment(name='example_experiment', n_epochs=2, n_reps=3)
