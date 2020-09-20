@@ -1,12 +1,12 @@
 import os
 
-from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
+from msi_models.stimset.channel_config import ChannelConfig
+from msi_models.stimset.multi_channel import MultiChannel
+from msi_models.stimset.multi_channel_config import MultiChannelConfig
 
 if __name__ == "__main__":
     # Set path to .hdf file
-    fn = 'data/sample_multisensory_data_sync_250k.hdf5'
-    fn = 'data/sample_multisensory_data_mix_hard_10.hdf5'
+    fn = 'data/sample_multisensory_data_mix_hard_250k.hdf5'
     path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
 
     # Create channel configs to load for /left/ and /right/ keys

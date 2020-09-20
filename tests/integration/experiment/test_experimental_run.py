@@ -9,8 +9,9 @@ from msi_models.experiment.experimental_run import ExperimentalRun
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
 from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
-from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
+from msi_models.stimset.channel_config import ChannelConfig
+from msi_models.stimset.multi_channel import MultiChannel
+from msi_models.stimset.multi_channel_config import MultiChannelConfig
 
 try:
     tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
@@ -28,7 +29,7 @@ class TestExperimentalRun(unittest.TestCase):
         MultiTwoGapStim.generate(templates=[MultiTwoGapTemplate['left_only'], MultiTwoGapTemplate['right_only'],
                                             MultiTwoGapTemplate['matched_sync'], MultiTwoGapTemplate['matched_async'],
                                             MultiTwoGapTemplate['unmatched_async']],
-                                 fs=500, n=50, batch_size=5, fn=self._tmp_data, n_jobs=5,
+                                 fs=500, n=220, batch_size=2, fn=self._tmp_data, n_jobs=5,
                                  template_kwargs={"duration": 1300, "background_mag": 0.3, "duration_tol": 0.5})
 
         common_kwargs = {"path": self._tmp_data, "train_prop": 0.8, "seed": 100,
