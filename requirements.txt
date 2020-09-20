@@ -4,6 +4,7 @@ tensorflow-gpu>=2.0
 matplotlib
 seaborn
 audiodag==0.0.19
+fitpsyche==0.0.3
 pydantic
 pydot
 graphviz

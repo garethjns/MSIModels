@@ -30,10 +30,7 @@ class TestUnisensoryBinary(unittest.TestCase):
         self.assertEqual((2,), y_.shape)
 
     def test_alternates_return_expected_shapes(self):
-        gen = unisensory_binary(n=3,
-                                events=10,
-                                duration=1100,
-                                fs=1200)
+        gen = unisensory_binary(n=3, events=[10], duration=1100, fs=1200)
         x, y = next(gen)
 
         self.assertIsInstance(x, dict)

@@ -119,7 +119,6 @@ The MultisensoryClassifier uses the agg/y_rate and agg/y_dec as output, targets,
 The channels are first defined, then combined into a MultiChannel object to feed the model with pre-generated data (stored in hdf5), see generations scripts above.
 
 ````python
-````python
 import os
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
@@ -164,109 +163,98 @@ scripts/train_multisensory_model.py
 
 ## Running experiments
 
-### ExperimentalRuns
-An ExperimentalRun is a component of [Experiment](#full_experiment) designed to run the same model on the same data set multiple times (with different seeds), and adds logging and performance statistics. The data and model are constructed as usual, then wrapped as ExperimentalDatasets and ExperimentalModels. The classes handle the stochastic elements for each run (shuffling training sets, model weight instantiation, etc.)
-
-See [View results](#view_results) section below to setup up MLflow to view the experimental logs.
+### ExperimentalRuns (WIP)
+Run multiple repeats of model type for a given dataset.
 
 scripts/run_single_experiment.py
 
-```python
-```python
+````python
 import os
-from msi_models.experiment.experimental_run import ExperimentalRun
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
+import tensorflow as tf
 from msi_models.experiment.experimental_model import ExperimentalModel
+from msi_models.experiment.experimental_run import ExperimentalRun
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannelConfig
+from msi_models.stimset.multi_channel import MultiChannelConfig, MultiChannel
 
-fn = "data/sample_multisensory_data_matched.hdf5"
+N_REPS = 5
+N_EPOCHS = 2
+
+# Prepare data
+fn = "data/sample_multisensory_data_mix_hard_250k.hdf5"
 path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
 
-common_kwargs = {"path": path,
-                 "train_prop": 0.8,
-                 "x_keys": ["x", "x_mask"],
-                 "y_keys": ["y_rate", "y_dec"],
-                 "seed": 100}
+common_kwargs = {"path": path, "train_prop": 0.8, "seed": 100,
+                 "x_keys": ["x", "x_mask"], "y_keys": ["y_rate", "y_dec"]}
 
-left_config = ChannelConfig(key='left', **common_kwargs)
-right_config = ChannelConfig(key='right', **common_kwargs)
-multi_config = MultiChannelConfig(path=path,
-                                  key='agg',
-                                  y_keys=["y_rate", "y_dec"],
-                                  channels=[left_config, right_config])
-
-exp_data = ExperimentalDataset(name='multi_matched',
-                               config=multi_config)
-exp_data.build(seed=123)
+multi_config = MultiChannelConfig(path=path, key='agg', y_keys=common_kwargs["y_keys"],
+                                  channels=[ChannelConfig(key='left', **common_kwargs),
+                                            ChannelConfig(key='right', **common_kwargs)])
+data = MultiChannel(multi_config)
 
 # Prepare model
-mod = MultisensoryClassifier(integration_type='intermediate_integration',
-                             opt='adam',
-                             epochs=1000,
-                             batch_size=500,
-                             lr=0.0025)
-exp_model = ExperimentalModel(model=mod,
-                              name="multi_inter")
+mod = ExperimentalModel(MultisensoryClassifier(integration_type='intermediate_integration',
+                                               opt='adam', batch_size=2000, lr=0.01),
+                        name='example_model')
 
-# Prepare exp run
-exp_run = ExperimentalRun(data=exp_data,
-                          model=exp_model,
-                          n_reps=4)
+# Prepare run
+exp_run = ExperimentalRun(name=f"example_run_for_example_model", model=mod, data=data,
+                          n_reps=N_REPS, n_epochs=N_EPOCHS)
 
+# Run
 exp_run.run()
-```
-<a name="full_experiment"></a>
-### Full Experiment
-The Experiment class handles running multiple ExperimentalRuns on different ExperimentaModel and ExperimentaDataset combinations, and additional stats and logging.
 
-In the MLflow logs, two experiments are created - one with the supplied name and the second with the suffix _agg. The experiment with the supplied name includes the n ExperimentalRun outputs as runs (rows)., The _agg version reduces these to aggregate Model + Data combinations and appropriate stats.
+# Evaluate
+exp_run.evaluate()
+
+# View results
+exp_run.log_run(to='example_run_summary')
+exp_run.log_summary(to='example_run')
+exp_run.results.plot_aggregated_results()
+print(exp_run.results.curves_agg)
+````
+
+See [View results](#view_results) section below to setup up MLflow to view the experimental logs.
+
+<a name="full_experiment"></a>
+### Full Experiment (WIP)
+
+The Experiment class handles running multiple repeats ("subjects") of defined models. It sets a single dataset (MultiChannel object, containing train and test split) and multiple Models. Each model is wrapped into an ExperimentalRun object that which handles running the same model multiple times. Each experimental run includes a ExperimentalResults object which contains the results, and handles evaluation and plotting.
+
+Results are persisted to mlflow into two experiments:
+ - *[name]_summary*
+   - Contains Summary results, with a run for each model.
+ - *[name]*
+   - Contains a run for every stimulus type, for every subject.
 
 ```python
+import os
+import tensorflow as tf
 from msi_models.experiment.experiment import Experiment
-from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
-from msi_models.stimset.channel import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannelConfig
 
-# Prepare runs
-common_data_kwargs = {"train_prop": 0.8,
-                      "x_keys": ["x", "x_mask"],
-                      "y_keys": ["y_rate", "y_dec"],
-                      "seed": 100}
-path='data'
-fns = {"multi_sync": "sample_multisensory_data_sync.hdf5",
-       "multi_matched": "sample_multisensory_data_matched.hdf5",
-       "multi_unmatched": "sample_multisensory_data_unmatched.hdf5"}
+N_REPS = 5
+N_EPOCHS = 2000
 
-exp_datasets = []
-for fk, fn in fns.items():
-    exp_datasets.append(
-        ExperimentalDataset(name=fk,
-                            config=MultiChannelConfig(path=f"{path}/{fn}",
-                                                      key='agg',
-                                                      y_keys=["y_rate", "y_dec"],
-                                                      channels=[ChannelConfig(path=f"{path}/{fn}",
-                                                                              key='left', **common_data_kwargs),
-                                                                ChannelConfig(path=f"{path}/{fn}",
-                                                                              key='right', **common_data_kwargs)])))
+# Prepare experiment
+exp = Experiment(name='example_experiment', n_epochs=N_EPOCHS, n_reps=N_REPS)
 
-exp_models = []
-for mod in ['early_integration', 'intermediate_integration', 'late_integration']:
-    exp_models.append(
-        ExperimentalModel(model=MultisensoryClassifier(integration_type='intermediate_integration',
-                                                       opt='adam',
-                                                       epochs=10,
-                                                       batch_size=500,
-                                                       lr=0.0025)))
+# Prepare data
+fn = "data/sample_multisensory_data_mix_hard_250k.hdf5"
+path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
 
-experiment = Experiment(models=exp_models,
-                        datasets=exp_datasets,
-                        name="example_experiment2")
+# Add data
+exp.add_data(path)
 
-experiment.run()
+# Prepare and add models
+common_model_kwargs = {'opt': 'adam', 'batch_size': 15000, 'lr': 0.01}
+for int_type in ['early_integration', 'intermediate_integration', 'late_integration']:
+    mod = ExperimentalModel(MultisensoryClassifier(integration_type=int_type, **common_model_kwargs), name=int_type)
+    exp.add_model(mod)
+
+# Run experiment
+exp.run()
 ```
 
 See [View results](#view_results) section below to setup up MLflow to view the experimental logs.
@@ -284,5 +272,3 @@ mlflow server
 ````
 
 2) View at http://localhost:5000
-
-
