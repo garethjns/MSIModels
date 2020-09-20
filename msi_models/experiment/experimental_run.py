@@ -33,7 +33,7 @@ class ExperimentalRun:
         self._prepare_runs()
 
     def _prepare_runs(self) -> None:
-        for r in range(self.n_reps):
+        for _ in range(self.n_reps):
             self._models.append(copy.deepcopy(self.model))
 
     def run(self) -> None:
