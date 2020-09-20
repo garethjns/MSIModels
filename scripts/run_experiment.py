@@ -1,8 +1,6 @@
-"""(not using Experiment, yet)"""
-
 import gc
 import os
-from typing import List
+from typing import List, Dict, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +16,7 @@ tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.l
                                                         [tf.config.experimental.VirtualDeviceConfiguration(
                                                             memory_limit=5000)])
 
-N_REPS = 3
+N_REPS = 5
 N_EPOCHS = 2000
 
 
@@ -26,7 +24,8 @@ def plot_aggregated_prop_fast(exp_mods: List[ExperimentalModel], rate_key: str =
     train_pfs = []
     test_pfs = []
     for exp_mod in exp_mods:
-        train_pf, test_pf = exp_mod.calc_prop_fast(mc, rate_key='agg_y_rate')
+        train_pf, test_pf = exp_mod.calc_prop_fasts(mc, rate_key='agg_y_rate')
+        exp_mod.clear()
         train_pfs.append(train_pf)
         test_pfs.append(test_pf)
 
@@ -49,6 +48,32 @@ def plot_aggregated_prop_fast(exp_mods: List[ExperimentalModel], rate_key: str =
             ax.legend(title='Set')
     fig.suptitle(f"{exp_mods[0].model.integration_type.capitalize()} (n={len(train_pfs)}", fontweight='bold')
     fig.show()
+
+
+def calc_aggregated_psyche_curves(exp_mods: List[ExperimentalModel]) -> Tuple[Dict[str, pd.DataFrame],
+                                                                              Dict[str, pd.DataFrame]]:
+    curves = {'train': [], 'test': []}
+    for s, mod in enumerate(exp_mods):
+        dfs = mod.calc_psyche_curves(mc)
+        for name, df in zip(['train', 'test'], dfs):
+            df.loc[:, 'subject'] = s
+            df.index.name = 'type'
+            df = df.reset_index(drop=False)
+            curves[name].append(df)
+
+    curve_full = {}
+    curve_summaries = {}
+    for k, dfs in curves.items():
+        df = pd.concat(dfs, axis=0)
+        df_gb_mean = df[[c for c in df.columns if c != 'subject']].groupby('type').mean()
+        df_gb_mean.columns = [f"{c}_mean" for c in df_gb_mean.columns]
+        df_gb_std = df[[c for c in df.columns if c != 'subject']].groupby('type').std()
+        df_gb_std.columns = [f"{c}_std" for c in df_gb_std.columns]
+
+        curve_summaries[k] = df
+        curve_summaries[k] = pd.concat([df_gb_mean, df_gb_std], axis=1)
+
+    return curve_full, curve_summaries
 
 
 if __name__ == "__main__":
@@ -101,9 +126,20 @@ if __name__ == "__main__":
         models['late'].append(late_exp_model)
 
     plot_aggregated_prop_fast(models['early'])
-    gc.collect()
     plot_aggregated_prop_fast(models['intermediate'])
-    gc.collect()
     plot_aggregated_prop_fast(models['late'])
 
-    print('stop')
+    _, curve_summaries_early = calc_aggregated_psyche_curves(models['early'])
+    _, curve_summaries_int = calc_aggregated_psyche_curves(models['intermediate'])
+    _, curve_summaries_late = calc_aggregated_psyche_curves(models['late'])
+
+    print('\nEarly:')
+    print(curve_summaries_early['test'])
+
+    print('\nIntermediate:')
+    print(curve_summaries_int['test'])
+
+    print('\nLate:')
+    print(curve_summaries_late['test'])
+
+    print('\nDone')
