@@ -48,7 +48,7 @@ class MultiTwoGapTemplate(Enum):
     _template: Union[None, MultiTwoGapParams]
 
     def set_options(self, fs: int = 1000, n_events: List[int] = None, duration_tol: float = 0.5, duration: int = 1300,
-                    background_mag: int = 5, cache: bool = True, seed: int = None):
+                    background_mag: int = 0.1, cache: bool = True, seed: int = None):
         if n_events is None:
             n_events = [11, 12, 13, 14, 15, 16]
         self.n_events = n_events
@@ -90,7 +90,7 @@ class MultiTwoGapTemplate(Enum):
         return self._template
 
     def example(self) -> None:
-        MultiTwoGapStim(self.build()).plot(show=True)
+        MultiTwoGapStim(self.set_options().build()).plot(show=True)
 
     @staticmethod
     def _multi_config_from_configs(config_1: TwoGapParams, config_2: TwoGapParams, validate_as_matched=False,
@@ -116,10 +116,10 @@ class MultiTwoGapTemplate(Enum):
 
         config_1 = template_noisy_sine_events(n_events=n_evs, seed=self.seed + 1, duration_tol=9999999, normalise=False,
                                               fs=self.fs, duration=self.duration, background_mag=self.background_mag,
-                                              cache=self.cache, )
+                                              cache=self.cache)
         config_2 = template_noisy_sine_events(n_events=0, seed=self.seed + 1, duration_tol=9999999, normalise=False,
                                               fs=self.fs, duration=self.duration, background_mag=self.background_mag,
-                                              cache=self.cache, )
+                                              cache=self.cache)
 
         return self._multi_config_from_configs(config_1, config_2, validate_as_sync=False, validate_as_matched=False)
 
