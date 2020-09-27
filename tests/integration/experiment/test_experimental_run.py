@@ -1,50 +1,33 @@
+import glob
 import os
 import tempfile
 import unittest
 
-import tensorflow as tf
-
+from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.experiment.experimental_run import ExperimentalRun
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
-from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
-from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
-from msi_models.stimset.channel_config import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannel
-from msi_models.stimset.multi_channel_config import MultiChannelConfig
-
-try:
-    tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
-                                                            [tf.config.experimental.VirtualDeviceConfiguration(
-                                                                memory_limit=256)])
-except Exception:
-    pass
+from msi_models.tf_helpers import limit_gpu_memory
 
 
 class TestExperimentalRun(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        limit_gpu_memory(256)
+
     def setUp(self):
         self._tmp_dir = tempfile.TemporaryDirectory()
-        self._tmp_data = os.path.join(self._tmp_dir.name, "test_data.hdf")
-
-        MultiTwoGapStim.generate(templates=[MultiTwoGapTemplate['left_only'], MultiTwoGapTemplate['right_only'],
-                                            MultiTwoGapTemplate['matched_sync'], MultiTwoGapTemplate['matched_async'],
-                                            MultiTwoGapTemplate['unmatched_async']],
-                                 fs=500, n=220, batch_size=2, fn=self._tmp_data, n_jobs=5,
-                                 template_kwargs={"duration": 1300, "background_mag": 0.3, "duration_tol": 0.5})
-
-        common_kwargs = {"path": self._tmp_data, "train_prop": 0.8, "seed": 100,
-                         "x_keys": ["x", "x_mask"], "y_keys": ["y_rate", "y_dec"]}
-        multi_config = MultiChannelConfig(path=self._tmp_data, key='agg', y_keys=common_kwargs["y_keys"],
-                                          channels=[ChannelConfig(key='left', **common_kwargs),
-                                                    ChannelConfig(key='right', **common_kwargs)])
-
+        self._tmp_data_path = os.path.join(self._tmp_dir.name, "test_data.hdf")
+        self._test_run_name = "test_experimental_run"
+        self._test_model_name = "test_model"
         # Prepare run
         self._sut = ExperimentalRun(
-            name=f"example_run_for_example_model",
+            name=self._test_run_name,
             model=ExperimentalModel(MultisensoryClassifier(integration_type='intermediate_integration',
                                                            opt='adam', batch_size=20, lr=0.01),
-                                    name='example_model'),
-            data=MultiChannel(multi_config), n_reps=2, n_epochs=2)
+                                    name=self._test_model_name),
+            data=ExperimentalDataset(self._tmp_dir.name, n=400, difficulty=12).build(self._tmp_data_path),
+            n_reps=2, n_epochs=1)
 
     def tearDown(self) -> None:
         self._tmp_dir.cleanup()
@@ -52,3 +35,11 @@ class TestExperimentalRun(unittest.TestCase):
     def test_run_experiment(self):
         self._sut.run()
         self._sut.evaluate()
+
+    def test_save_models_saves_all_reps_to_separate_dirs(self):
+        # Act
+        self._sut.save_models()
+
+        # Assert
+        saved_rep_dirs = glob.glob(os.path.join(self._tmp_dir.name, self._test_model_name, "rep_*"))
+        self.assertEqual(2, len(saved_rep_dirs))

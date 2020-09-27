@@ -1,8 +1,10 @@
 from collections import OrderedDict
 from typing import OrderedDict as OrderedDictType, Tuple
 
+import numpy as np
 from tensorflow import keras
 from tensorflow.keras import layers
+from tensorflow.python.keras.backend import count_params
 
 from msi_models.models.keras_sk_base import KerasSKBase
 
@@ -16,7 +18,7 @@ class MultisensoryBase(KerasSKBase):
              "right_y_rate": "mse",
              "y_dec": "categorical_crossentropy",
              "y_rate": "mse"}
-    _loss_weights = {"left_conv_1": 0,
+    loss_weights = {"left_conv_1": 0,
                      "left_conv_2": 0,
                      "left_y_rate": 0,
                      "right_y_rate": 0,
@@ -98,7 +100,7 @@ class MultisensoryBase(KerasSKBase):
     def _build_late_channel(self, input_layer: layers.Layer,
                             side: str) -> Tuple[layers.Layer, layers.Layer]:
         n_units = self.fc_1_units_input_prop * self.input_length
-        n_units = int(n_units if side == 'mid' else n_units / 4)
+        n_units = int(n_units if side == 'mid' else n_units / 1.337)
 
         fc_1 = layers.Dense(n_units, activation=self.fc_1_activation, name=f"{side}_fc_1")(input_layer)
         drop_1 = layers.Dropout(rate=self.drop_1_prop, name=f'{side}_drop_1')(fc_1)
@@ -218,16 +220,20 @@ class MultisensoryBase(KerasSKBase):
 
         self._build_model()
 
+    @property
+    def n_params(self) -> int:
+        if self.model is None:
+            return 0
+        else:
+            return int(np.sum([count_params(w) for w in self.model.trainable_weights]))
+
 
 if __name__ == "__main__":
     mod = MultisensoryBase("early_integration")
     mod.build_model()
-    mod.plot_dag()
 
     mod = MultisensoryBase("intermediate_integration")
     mod.build_model()
-    mod.plot_dag()
 
     mod = MultisensoryBase("late_integration")
     mod.build_model()
-    mod.plot_dag()

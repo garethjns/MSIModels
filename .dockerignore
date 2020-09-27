@@ -1,0 +1,9 @@
+**/data
+scripts/
+**/mlruns
+images/
+.github/
+**/.pytest_cache/
+**/logs/
+**/unnamed_experiment/
+**/example_experiment/

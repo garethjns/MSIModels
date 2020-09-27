@@ -4,9 +4,6 @@ from msi_models.models.conv.multisensory_base import MultisensoryBase
 
 
 class TestMultisensoryBase(unittest.TestCase):
-    """
-    TODO: Add asserts for param counts when fixed: np.sum([count_params(w) for w in mod.model.trainable_weights])
-    """
     _sut = MultisensoryBase
 
     def test_early_integration_model_builds(self):
@@ -18,6 +15,7 @@ class TestMultisensoryBase(unittest.TestCase):
 
         # Assert
         self.assertIsInstance(mod, MultisensoryBase)
+        self.assertAlmostEqual(160000, mod.n_params, -4)
 
     def test_intermediate_integration_model_builds(self):
         # Arrange
@@ -28,6 +26,7 @@ class TestMultisensoryBase(unittest.TestCase):
 
         # Assert
         self.assertIsInstance(mod, MultisensoryBase)
+        self.assertAlmostEqual(160000, mod.n_params, -4)
 
     def test_late_integration_model_builds(self):
         # Arrange
@@ -38,3 +37,4 @@ class TestMultisensoryBase(unittest.TestCase):
 
         # Assert
         self.assertIsInstance(mod, MultisensoryBase)
+        self.assertAlmostEqual(160000, mod.n_params, -4)
