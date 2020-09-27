@@ -1,4 +1,8 @@
 import abc
+import os
+import pathlib
+import pickle
+from collections import OrderedDict
 from typing import Dict, List
 
 import numpy as np
@@ -10,7 +14,7 @@ from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 
 class KerasSKBase(abc.ABC, BaseEstimator):
     _loss: Dict[str, str]
-    _loss_weights: Dict[str, float]
+    loss_weights: Dict[str, float]
     _metrics: Dict[str, str]
     model = None
 
@@ -33,10 +37,14 @@ class KerasSKBase(abc.ABC, BaseEstimator):
     def build_model(self):
         pass
 
-    def plot_dag(self) -> None:
+    def plot_dag(self, path: str = '') -> None:
         if self.model is None:
             self.build_model()
-        keras.utils.plot_model(self.model, f"{self.integration_type}_mod.png", show_shapes=True)
+        try:
+            keras.utils.plot_model(self.model, os.path.join(path, f"{self.integration_type}_mod.png"),
+                                   show_shapes=True)
+        except (ImportError, AssertionError) as e:
+            print(f"Failed to plot dag due to {e}")
 
     def __str__(self) -> str:
         if self.model is not None:
@@ -57,7 +65,7 @@ class KerasSKBase(abc.ABC, BaseEstimator):
             opt = keras.optimizers.Adam(lr=self.lr)
 
         self.build_model()
-        self.model.compile(optimizer=opt, loss=self._loss, loss_weights=self._loss_weights, metrics=self._metrics)
+        self.model.compile(optimizer=opt, loss=self._loss, loss_weights=self.loss_weights, metrics=self._metrics)
 
         es = EarlyStopping(monitor=self.es_loss, mode='min', verbose=2, patience=self.es_patience)
         tb = TensorBoard(histogram_freq=5)
@@ -83,3 +91,35 @@ class KerasSKBase(abc.ABC, BaseEstimator):
 
     def predict_dict(self, x) -> Dict:
         return {k: v for k, v in zip(self.model.output_names, self.predict(x))}
+
+    def save(self, path: str) -> None:
+        pathlib.Path(path).mkdir(exist_ok=True)
+
+        if self.model is not None:
+            self.model.save_weights(os.path.join(path, "model_weights"))
+
+        self.clear_tf()
+
+        pickle.dump(self, open(os.path.join(path, "model.pkl"), 'wb'))
+
+    def clear_tf(self):
+        """Clear everything tf related"""
+        self.model = None
+        attrs = [a for a in dir(self) if not a.startswith('_')]
+        for att in attrs:
+            if isinstance(getattr(self, att), OrderedDict):
+                setattr(self, att, OrderedDict())
+        tf.keras.backend.clear_session()
+
+    @classmethod
+    def load(cls, path: str) -> "KerasSKBase":
+        model_weights_path = os.path.join(path, "model_weights")
+        pkl_path = os.path.join(path, "model.pkl")
+
+        new_obj = pickle.load(open(pkl_path, 'rb'))
+
+        if os.path.exists(f"{model_weights_path}.index"):
+            new_obj.build_model()
+            new_obj.model.load_weights(model_weights_path)
+
+        return new_obj

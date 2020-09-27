@@ -1,41 +1,21 @@
 """Example training a model using the experimental wrappers."""
 
-import os
-
-import tensorflow as tf
-
+from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
-from msi_models.stimset.channel_config import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannel
-from msi_models.stimset.multi_channel_config import MultiChannelConfig
+from msi_models.tf_helpers import limit_gpu_memory
 
-tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
-                                                        [tf.config.experimental.VirtualDeviceConfiguration(
-                                                            memory_limit=5000)])
+N_DATA_ROWS = 10000
 
 if __name__ == "__main__":
-    # Prepare data
-    fn = 'data/sample_multisensory_data_mix_hard_250k.hdf5'
-    path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
+    limit_gpu_memory(3000)
 
-    common_kwargs = {"path": path,
-                     "train_prop": 0.8,
-                     "x_keys": ["x", "x_mask"],
-                     "y_keys": ["y_rate", "y_dec"],
-                     "seed": 100}
+    # Prepare data (doesn't need to have been pre-generated)
+    data = ExperimentalDataset("scripts_example_easy",
+                               n=N_DATA_ROWS, difficulty=35).build("data/scripts_example_mix_hard.hdf5")
 
-    left_config = ChannelConfig(key='left', **common_kwargs)
-    right_config = ChannelConfig(key='right', **common_kwargs)
-    multi_config = MultiChannelConfig(path=path, key='agg',
-                                      y_keys=common_kwargs["y_keys"],
-                                      channels=[left_config, right_config])
-    mc = MultiChannel(multi_config)
-
-    # Prepare models
-    common_model_kwargs = {'opt': 'adam',
-                           'batch_size': 15000,
-                           'lr': 0.007}
+    # Prepare 3 models types
+    common_model_kwargs = {'opt': 'adam', 'batch_size': 15000, 'lr': 0.007}
     early_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='early_integration',
                                                                **common_model_kwargs))
     int_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='intermediate_integration',
@@ -43,13 +23,17 @@ if __name__ == "__main__":
     late_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='late_integration',
                                                               **common_model_kwargs))
 
+    # fit each model and print some evaluation
     for mod in [early_exp_model, int_exp_model, late_exp_model]:
         # Fit
-        mod.fit(mc, epochs=1000)
+        mod.fit(data, epochs=1)
+
         # Eval
-        # mod.plot_example(mc, dec_key='agg_y_dec')
-        mod.calc_prop_fasts(mc, rate_key='agg_y_rate')
-        _, test_psyche_fits = mod.calc_psyche_curves(mc, rate_key='agg_y_rate')
-        print(test_psyche_fits)
-        mod.plot_prop_fast(mc, rate_key='agg_y_rate')
-        train_report, test_report = mod.report(mc)
+        if mod.model.integration_type == 'intermediate_integration':
+            # This isn't implemented for all integration_types yet.
+            mod.plot_example(data, dec_key='agg_y_dec')
+
+        psyche_fits = mod.calc_psyche_curves(data, rate_key='agg_y_rate')
+        mod.plot_prop_fast(data, rate_key='agg_y_rate')
+        train_report, test_report = mod.report(data)
+        print(psyche_fits)

@@ -1,4 +1,7 @@
 import gc
+import os
+import pathlib
+import pickle
 from dataclasses import dataclass
 from typing import Dict, Tuple, Union, Any
 
@@ -7,6 +10,7 @@ import numpy as np
 import pandas as pd
 from fit_psyche.psychometric_curve import PsychometricCurve
 
+from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.models.conv.unisensory_templates import UnisensoryClassifier
 from msi_models.stimset.multi_channel import MultiChannel
@@ -19,32 +23,32 @@ class ExperimentalModel:
 
     def __init__(self, model: Union[UnisensoryClassifier, MultisensoryClassifier], name: str = "unnamed_model") -> None:
         self.name = name
-        self.model = model
+        self.model: Union[None, UnisensoryClassifier, MultisensoryClassifier] = model
         self.preds_train: Union[None, Dict[str, np.ndarray]] = None
         self.preds_test: Union[None, Dict[str, np.ndarray]] = None
 
         self.run_id: int
         self.results: pd.DataFrame = pd.DataFrame()
 
-    def fit(self, data: MultiChannel, validation_split: float = 0.4, **kwargs) -> None:
-        model_outputs = self.model._loss_weights
+    def fit(self, data: ExperimentalDataset, validation_split: float = 0.4, **kwargs) -> None:
+        model_outputs = self.model.loss_weights
 
-        self.model.fit(data.x_train, {k: data.y_train[k] for k in model_outputs},
+        self.model.fit(data.mc.x_train, {k: data.mc.y_train[k] for k in model_outputs},
                        # Only input ys used in losses
                        validation_split=validation_split, shuffle=True, **kwargs)
 
-    def predict(self, data: MultiChannel) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+    def predict(self, data: ExperimentalDataset) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
         """
-        Predict for a dataset, seperately for test and train.
+        Predict for a dataset, separately for test and train.
 
         Preds are cached until .clear is called.
         """
 
         if self.preds_train is None:
-            self.preds_train = self._predict_batches(data.x_train)
+            self.preds_train = self._predict_batches(data.mc.x_train)
 
         if self.preds_test is None:
-            self.preds_test = self._predict_batches(data.x_test)
+            self.preds_test = self._predict_batches(data.mc.x_test)
 
         return self.preds_train, self.preds_test
 
@@ -69,13 +73,28 @@ class ExperimentalModel:
 
         return concat_preds
 
+    def save(self, path: str) -> None:
+        pathlib.Path(path).mkdir(exist_ok=True)
+        self.preds_test = None
+        self.preds_train = None
+        self.model.save(path)
+        pickle.dump(self, open(os.path.join(path, "experimental_model.pkl"), 'wb'))
+
+    @classmethod
+    def load(cls, path: str) -> "ExperimentalModel":
+        new = pickle.load(open(os.path.join(path, "experimental_model.pkl"), 'rb'))
+        new.model = MultisensoryClassifier.load(os.path.join(path, "model.pkl"))
+
+        return new
+
     @staticmethod
     def calc_psyche_curve(df: pd.DataFrame, rate_key: str = 'agg_y_rate', type_key: str = 'type') -> pd.DataFrame:
 
         pc_coefs = []
         for ty in df.type.unique():
             try:
-                pc = PsychometricCurve().fit(df.loc[df.type == ty, rate_key], df.loc[df[type_key] == ty, 'preds_dec'])
+                pc = PsychometricCurve(model='wh').fit(df.loc[df.type == ty, rate_key],
+                                                       df.loc[df[type_key] == ty, 'preds_dec'])
                 coefs: Dict[str, Any] = pc.coefs_  # This typehint is missing in FitPsyche package
                 coefs.update({'model': pc})
             except np.linalg.LinAlgError:
@@ -88,7 +107,7 @@ class ExperimentalModel:
 
         return curves
 
-    def calc_psyche_curves(self, data: MultiChannel,
+    def calc_psyche_curves(self, data: ExperimentalDataset,
                            type_key: str = 'type', rate_key: str = 'agg_y_rate') -> pd.DataFrame:
         df = self.report(data)
 
@@ -104,7 +123,7 @@ class ExperimentalModel:
     def calc_prop_fast(df: pd.DataFrame, type_key: str = 'type', rate_key: str = 'agg_y_rate') -> pd.DataFrame:
         return df[[type_key, rate_key, 'preds_dec']].groupby([rate_key, type_key]).mean().reset_index(drop=False)
 
-    def calc_prop_fasts(self, data: MultiChannel,
+    def calc_prop_fasts(self, data: ExperimentalDataset,
                         type_key: str = 'type', rate_key: str = 'agg_y_rate') -> pd.DataFrame:
         df = self.report(data)
 
@@ -116,11 +135,11 @@ class ExperimentalModel:
 
         return pd.concat(pfs, axis=0)
 
-    def plot_prop_fast(self, data: MultiChannel, type_key='type', rate_key: str = 'agg_y_rate') -> None:
+    def plot_prop_fast(self, data: ExperimentalDataset, type_key='type', rate_key: str = 'agg_y_rate') -> None:
         train_pf, test_pf = self.calc_prop_fasts(data, type_key=type_key, rate_key=rate_key)
 
         rates = train_pf[rate_key].unique()
-        typs = np.sort(data.summary.type.unique())
+        typs = np.sort(data.mc.summary.type.unique())
         n_subplots = len(typs)
         fig, axs = plt.subplots(ncols=n_subplots, figsize=(2.5 * n_subplots, 8))
         for ai, (ax, ty) in enumerate(zip(axs, typs)):
@@ -195,7 +214,7 @@ class ExperimentalModel:
 
         return fig
 
-    def plot_example(self, data: MultiChannel, show: bool = True, dec_key: str = "agg_y_dec",
+    def plot_example(self, data: ExperimentalDataset, show: bool = True, dec_key: str = "agg_y_dec",
                      mistake: bool = False) -> None:
         """
         Plot a random example from the test set, with output from an early conv layer.
@@ -203,28 +222,30 @@ class ExperimentalModel:
         TODO: Inefficient, predicts for all (to find mistakes).
         TODO: Upgrade to work with subplots for multisensory would be nice.
         """
+        if not self.model.integration_type == 'intermediate_integration':
+            raise NotImplementedError(f"This only implemented for intermediate_integration at the moment.")
 
         self.predict(data)
 
         if mistake:
             mistakes = ~((self.preds_test[dec_key][:, 1] > 0.5)
-                         == (data.y_test[dec_key][:, 1].astype(bool)))
+                         == (data.mc.y_test[dec_key][:, 1].astype(bool)))
             row = np.random.choice(np.where(mistakes)[0])
         else:
             row = np.random.choice(range(0, self.preds_test[dec_key].shape[0]))
 
-        self._plot_for_intermediate_model(data, row)
+        self._plot_for_intermediate_model(data.mc, row)
 
         if show:
             plt.show()
 
-    def report(self, data: MultiChannel) -> pd.DataFrame:
+    def report(self, data: ExperimentalDataset) -> pd.DataFrame:
 
         train_preds, test_preds = self.predict(data)
 
         dfs = []
-        for summ, d, preds, set_name in zip([data.summary_train, data.summary_test],
-                                            [data.y_train, data.y_test],
+        for summ, d, preds, set_name in zip([data.mc.summary_train, data.mc.summary_test],
+                                            [data.mc.y_train, data.mc.y_test],
                                             [train_preds, test_preds],
                                             ['train', 'test']):
             report_df = pd.DataFrame({'left_y_rate': d["left_y_rate"],
@@ -243,7 +264,7 @@ class ExperimentalModel:
 
         return pd.concat(dfs, axis=0)
 
-    def evaluate_performance(self, data: MultiChannel) -> pd.DataFrame:
+    def evaluate_performance(self, data: ExperimentalDataset) -> pd.DataFrame:
         report_df = self.report(data)
 
         # Accuracy
@@ -270,3 +291,8 @@ class ExperimentalModel:
         self.preds_train = None
         self.preds_test = None
         gc.collect()
+
+    def shallow_clone(self) -> "ExperimentalModel":
+        """Return a copy of self without the tensorflow model."""
+        self.model = None
+        return self

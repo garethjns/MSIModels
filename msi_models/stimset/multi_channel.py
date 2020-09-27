@@ -3,12 +3,11 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from msi_models.stimset.channel import Channel
 from msi_models.stimset.channel_config import ChannelConfig
 from msi_models.stimset.multi_channel_config import MultiChannelConfig
-
-os.sep = '/'
 
 
 class MultiChannel:
@@ -17,10 +16,8 @@ class MultiChannel:
         # Create channels to get individual channel x and y data
         self.channels = [Channel(config) for config in self.config.channels]
         # Create a new channel to get the main y keys, wherever they are.
-        self.y_channel = Channel(ChannelConfig(path=self.config.path,
-                                               seed=self.config.seed,
-                                               key=self.config.key,
-                                               y_keys=self.config.y_keys))
+        self.y_channel = Channel(ChannelConfig(path=self.config.path, seed=self.config.seed,
+                                               key=self.config.key, y_keys=self.config.y_keys))
 
         self.n = self.channels[0].n
 
@@ -75,7 +72,7 @@ class MultiChannel:
 
         return ys
 
-    def plot_example(self, show: bool = True):
+    def plot_example(self, show: bool = True) -> plt.Figure:
         row = np.random.choice(range(0, self.n))
         for k, v in self.y.items():
             print(f"{k}: {v[row]}")
@@ -98,9 +95,51 @@ class MultiChannel:
         if show:
             plt.show()
 
+        return fig
+
+    def plot_summary(self, subset='all', show: bool = True) -> plt.Figure:
+
+        if subset == 'all':
+            data = self.summary
+        elif subset == 'train':
+            data = self.summary_train
+        elif subset == 'test':
+            data = self.summary_test
+        else:
+            raise ValueError(f"Invalid subset {subset}, use 'all, 'train' or 'test.")
+
+        fig = plt.figure(figsize=(8, 6))
+        gs = fig.add_gridspec(2, 2)
+
+        for ax_i, side in enumerate(['left', 'right']):
+            ax = fig.add_subplot(gs[0, ax_i])
+            rates = data[f"{side}_n_events"].unique()
+
+            for ty in np.sort(data.type.unique()):
+                idx = data[f"{side}_n_events"] != 0
+                sns.histplot(data.loc[idx, :], y=f"{side}_n_events", hue="type", ax=ax, bins=len(rates) -1)
+
+            ax.set_xlabel(ax.get_xlabel(), fontweight='bold')
+            ax.set_title(side.capitalize(), fontweight='bold')
+            if ax_i == 0:
+                ax.set_ylabel(ax.get_ylabel(), fontweight='bold')
+            else:
+                ax.set_ylabel('')
+
+        ax = fig.add_subplot(gs[1, :])
+        sns.histplot(data.type, label=type, ax=ax, kde=False, bins=len(data.type.unique()))
+        ax.set_ylabel('Count', fontweight='bold')
+        ax.set_xlabel(ax.get_xlabel(), fontweight='bold')
+        fig.suptitle(f"{os.path.split(self.config.path)[-1]}, subset: {subset.capitalize()}", fontweight='bold')
+
+        if show:
+            fig.show()
+
+        return fig
+
 
 if __name__ == "__main__":
-    path = "../../data/sample_multisensory_data_matched_250k.hdf5"
+    path = "../../scripts/data/sample_multisensory_data_mix_hard_250k.hdf5"
     common_kwargs = {"path": path,
                      "train_prop": 0.8,
                      "x_keys": ["x", "x_mask"],
@@ -121,3 +160,5 @@ if __name__ == "__main__":
 
     mc.x
     mc.x_train.keys()
+
+    mc.plot_summary()

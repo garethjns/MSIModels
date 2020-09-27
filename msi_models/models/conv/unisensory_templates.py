@@ -6,8 +6,8 @@ from msi_models.models.conv.unisensory_base import UnisensoryBase
 class UnisensoryClassifier(UnisensoryBase):
     _loss = {"y_dec": "categorical_crossentropy",
              "y_rate": "mse"}
-    _loss_weights = {"y_dec": 0.5,
-                     "y_rate": 0.5}
+    loss_weights = {"y_dec": 0.5,
+                    "y_rate": 0.5}
     _metrics = {"y_dec": ['accuracy']}
 
 
@@ -16,10 +16,10 @@ class UnisensoryEventDetector(UnisensoryBase):
              "conv_2": "mse",
              "y_dec": "categorical_crossentropy",
              "y_rate": "mse"}
-    _loss_weights = {"conv_1": 0,
-                     "conv_2": 0,
-                     "y_dec": 0.5,
-                     "y_rate": 0.5}
+    loss_weights = {"conv_1": 0,
+                    "conv_2": 0,
+                    "y_dec": 0.5,
+                    "y_rate": 0.5}
     _metrics = {"y_dec": ['accuracy']}
 
 

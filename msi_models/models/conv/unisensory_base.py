@@ -11,12 +11,12 @@ class UnisensoryBase(KerasSKBase):
              "flatten_2": "mse",
              "y_dec": "categorical_crossentropy",
              "y_rate": "mse"}
-    _loss_weights = {"conv_1": 0,
-                     "conv_2": 0,
-                     "flatten_1": 0,
-                     "flatten_2": 0,
-                     "y_dec": 0.5,
-                     "y_rate": 0.5}
+    loss_weights = {"conv_1": 0,
+                    "conv_2": 0,
+                    "flatten_1": 0,
+                    "flatten_2": 0,
+                    "y_dec": 0.5,
+                    "y_rate": 0.5}
     _metrics = {"y_dec": ['accuracy']}
 
     def __init__(self,

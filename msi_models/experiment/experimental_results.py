@@ -1,3 +1,4 @@
+import os
 from typing import List, Union
 
 import matplotlib.pyplot as plt
@@ -5,23 +6,29 @@ import numpy as np
 import pandas as pd
 from fit_psyche.psychometric_curve import PsychometricCurve
 
+from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
-from msi_models.stimset.multi_channel import MultiChannel
 
 
 class ExperimentalResults:
     """Handles results, evaluation, and plotting, for an ExperimentalRun (repeats of a model/data combination)."""
 
     def __init__(self, rate_key: str = 'agg_y_rate', type_key: str = 'type') -> None:
+        self.rate_key: str = rate_key
+        self.type_key: str = type_key
+
+        # Set with .add_models() model is added (repeats of same model)
+        self.mods: Union[None, List[ExperimentalModel]] = None
+
+        # Set with .add_data(). Single dataset is used for each Run, but training tr/val split will have been different
+        # for each.
         self.types: List[int] = []
         self.rates: List[int] = []
         self.subjects: List[int] = []
-        self.rate_key: str = rate_key
-        self.type_key: str = type_key
-        self.mods: Union[None, List[ExperimentalModel]] = None
-        self.data: Union[None, MultiChannel] = None
+        self.data: Union[None, ExperimentalDataset] = None
 
+        # Set on evaluation
         self.model_perf_subject: Union[None, pd.DataFrame] = None
         self.model_perf_agg: Union[None, pd.DataFrame] = None
         self.pfs_subject: Union[None, pd.DataFrame] = None
@@ -29,11 +36,13 @@ class ExperimentalResults:
         self.curves_subject: Union[None, pd.DataFrame] = None
         self.curves_agg: Union[None, pd.DataFrame] = None
 
-    def set_data(self, data: MultiChannel) -> "ExperimentalResults":
-        self.data = data
-        self.types = list(np.sort(data.summary.type.unique()))
-        rates = np.unique(list(data.summary.left_n_events.unique()) + list(data.summary.right_n_events.unique()))
-        self.rates = [r for r in rates if r != 0]
+    def set_data(self, data: ExperimentalDataset) -> "ExperimentalResults":
+        if self.data is None:
+            self.data = data
+            self.types = self.data.types
+            self.rates = self.data.rates
+        else:
+            raise RuntimeError(f"Data already set, create a new object to set new.")
 
         return self
 
@@ -98,9 +107,10 @@ class ExperimentalResults:
         gb = self.curves_subject[[c for c in self.curves_subject.columns
                                   if c not in ['subject', 'model']]].groupby(['type', 'set'])
 
-        self.curves_agg = pd.concat((gb.mean().rename({'mean': 'bias_mean', 'var': 'dt_mean'}, axis=1),
-                                     gb.std().rename({'mean': 'bias_std', 'var': 'dt_std'}, axis=1),
-                                     gb.count().rename({'mean': 'bias_n', 'var': 'dt_n'}, axis=1)), axis=1)
+        cols = ['mean', 'var', 'guess_rate', 'lapse_rate']
+        self.curves_agg = pd.concat((gb.mean().rename({k: f"{k}_mean" for k in cols}, axis=1),
+                                     gb.std().rename({k: f"{k}_std" for k in cols}, axis=1),
+                                     gb.count().rename({'mean': 'n'}, axis=1)['n']), axis=1)
 
     def aggregate_over_subjects(self) -> None:
         """
@@ -129,7 +139,7 @@ class ExperimentalResults:
         return sets
 
     def plot_aggregated_results(self, train: bool = False, test: bool = True,
-                                include_curves: bool = True) -> plt.Figure:
+                                include_curves: bool = True, show: bool=True, path: str = None) -> plt.Figure:
         n_subplots = len(self.types)
         fig, axs = plt.subplots(ncols=n_subplots, figsize=(2.5 * n_subplots, 8))
 
@@ -148,21 +158,35 @@ class ExperimentalResults:
 
                 if include_curves:
                     curve_idx = (curve_data[self.type_key] == ty) & (curve_data['set'] == name)
-                    pc = PsychometricCurve()
-                    pc.coefs_ = {'mean': curve_data.loc[curve_idx, 'bias_mean'].values[0],
-                                 'var': curve_data.loc[curve_idx, 'dt_mean'].values[0]}
-                    x = np.linspace(min(self.rates), max(self.rates), 100)
+                    pc = PsychometricCurve(model='wh')
+                    pc.coefs_ = {k: curve_data.loc[curve_idx, f"{k}_mean"].values[0]
+                                 for k in ['mean', 'var', 'guess_rate', 'lapse_rate']}
+                    x = np.linspace(min(self.rates), max(self.rates), 200)
                     y_pred = pc.predict(x)
-                    ax.plot(x, y_pred, label=f"{name}_fit (dt={np.round(pc.coefs_['var'], 2)})")
+                    ax.plot(x, y_pred, label=f"{name}_fit \n(b={np.round(pc.coefs_['mean'], 2)}\n"
+                                             f"var={np.round(pc.coefs_['var'], 2)}\n"
+                                             f"gr={np.round(pc.coefs_['guess_rate'], 2)}\n"
+                                             f"lr={np.round(pc.coefs_['lapse_rate'], 2)})")
 
             ax.set_ylim([0, 1])
+            ax.set_xlim([min(self.rates) - 2, max(self.rates) + 2])
             ax.set_xlabel('Rate, Hz', fontweight='bold')
             ax.set_title(str(MultiTwoGapTemplate(ty)).split('.')[1])
             ax.legend()
             if ai == 0:
                 ax.set_ylabel('Prop fast decision', fontweight='bold')
 
-        fig.suptitle(f"{self.mods[0].model.integration_type.capitalize()} (n={len(self.mods)})", fontweight='bold')
-        fig.show()
+        fig.suptitle(f"{self.mods[0].model.integration_type.capitalize()} on {self.data.name} (n={len(self.mods)})",
+                     fontweight='bold')
+
+        if path is not None:
+            fig.savefig(os.path.join(path, "aggregated_results.png"))
+
+        if show:
+            fig.show()
 
         return fig
+
+    def save(self, path: str) -> None:
+        for name in ["model_perf_subject", "model_perf_agg", "pfs_subject", "pfs_agg", "curves_subject", "curves_agg"]:
+            getattr(self, name).to_csv(f"{os.path.join(path, name)}.csv")

@@ -10,7 +10,7 @@ BATCH_SIZE = 100
 
 if __name__ == "__main__":
 
-    fn = f'data/sample_multisensory_data_mix_hard_{N}.hdf5'
+    fn = f'data/scripts_multisensory_data_mix.hdf5'
     if not os.path.exists(fn):
         MultiTwoGapStim.generate(templates=[MultiTwoGapTemplate['left_only'],
                                             MultiTwoGapTemplate['right_only'],

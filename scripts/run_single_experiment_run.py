@@ -1,43 +1,28 @@
 """Example running repeated model + data experiment, and logging, using ExperimentalRun"""
-
-import os
-
-import tensorflow as tf
-
+from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.experiment.experimental_run import ExperimentalRun
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
-from msi_models.stimset.channel_config import ChannelConfig
-from msi_models.stimset.multi_channel import MultiChannel
-from msi_models.stimset.multi_channel_config import MultiChannelConfig
-
-tf.config.experimental.set_virtual_device_configuration(tf.config.experimental.list_physical_devices('GPU')[0],
-                                                        [tf.config.experimental.VirtualDeviceConfiguration(
-                                                            memory_limit=5000)])
+from msi_models.tf_helpers import limit_gpu_memory
 
 N_REPS = 5
 N_EPOCHS = 2
+N_DATA_ROWS = 10000
 
 if __name__ == "__main__":
-    # Prepare data
-    fn = "data/sample_multisensory_data_mix_hard_250k.hdf5"
-    path = os.path.join(os.getcwd().split('msi_models')[0], fn).replace('\\', '/')
+    limit_gpu_memory(5000)
 
-    common_kwargs = {"path": path, "train_prop": 0.8, "seed": 100,
-                     "x_keys": ["x", "x_mask"], "y_keys": ["y_rate", "y_dec"]}
-
-    multi_config = MultiChannelConfig(path=path, key='agg', y_keys=common_kwargs["y_keys"],
-                                      channels=[ChannelConfig(key='left', **common_kwargs),
-                                                ChannelConfig(key='right', **common_kwargs)])
-    data = MultiChannel(multi_config)
+    # Prepare data (data doesn't need to have been pre-generated)
+    data = ExperimentalDataset("scripts_example_easy",
+                               n=N_DATA_ROWS, difficulty=35).build("data/scripts_example_mix_hard.hdf5")
 
     # Prepare model
     mod = ExperimentalModel(MultisensoryClassifier(integration_type='intermediate_integration',
                                                    opt='adam', batch_size=2000, lr=0.01),
-                            name='example_model')
+                            name='scripts_example_model')
 
     # Prepare run
-    exp_run = ExperimentalRun(name=f"example_run_for_example_model", model=mod, data=data,
+    exp_run = ExperimentalRun(name=f"scripts_example_run", model=mod, data=data,
                               n_reps=N_REPS, n_epochs=N_EPOCHS)
 
     # Run
