@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
-from msi_models.experiment.experimental_results import ExperimentalResults
+from msi_models.experiment.experimental_run_results import ExperimentalResults
 
 
 @dataclass
@@ -82,7 +82,8 @@ class ExperimentalRun:
         mlflow.log_param('dataset_name', self.data.name)
         mlflow.log_param('model_integration_type', self.model.name.split('_')[0])
         mlflow.log_param('model_n_params', self._models[0].model.n_params)  # (Needs to be a built model)
-        # mlflow.log_artifacts(self.output_path)
+        mlflow.log_param('exp_path', self.exp_path)
+        mlflow.log_param('output_path', self.output_path)
 
     def log_run(self, to: str) -> None:
         """ Log each type of each repeat/"subject" as a run."""
@@ -133,6 +134,7 @@ class ExperimentalRun:
                 idx = (curves_df["set"] == dset) & (curves_df["type"] == ty)
                 mlflow.log_metrics({f"pc_{k}_{dset}": curves_df.loc[idx, k].values[0] for k in to_log})
 
+        mlflow.log_artifacts(self.output_path)
         mlflow.end_run()
 
     def save_models(self) -> None:

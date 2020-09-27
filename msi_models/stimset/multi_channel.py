@@ -113,12 +113,9 @@ class MultiChannel:
 
         for ax_i, side in enumerate(['left', 'right']):
             ax = fig.add_subplot(gs[0, ax_i])
-            rates = data[f"{side}_n_events"].unique()
-
-            for ty in np.sort(data.type.unique()):
-                idx = data[f"{side}_n_events"] != 0
-                sns.histplot(data.loc[idx, :], y=f"{side}_n_events", hue="type", ax=ax, bins=len(rates) -1)
-
+            rates = [r for r in data[f"{side}_n_events"].unique() if r != 0]
+            sns.histplot(data.loc[data[f"{side}_n_events"] != 0, :], y=f"{side}_n_events", hue="type", ax=ax,
+                         bins=len(rates))
             ax.set_xlabel(ax.get_xlabel(), fontweight='bold')
             ax.set_title(side.capitalize(), fontweight='bold')
             if ax_i == 0:
@@ -133,32 +130,26 @@ class MultiChannel:
         fig.suptitle(f"{os.path.split(self.config.path)[-1]}, subset: {subset.capitalize()}", fontweight='bold')
 
         if show:
-            fig.show()
+            plt.show()
 
         return fig
 
 
 if __name__ == "__main__":
     path = "../../scripts/data/sample_multisensory_data_mix_hard_250k.hdf5"
-    common_kwargs = {"path": path,
-                     "train_prop": 0.8,
-                     "x_keys": ["x", "x_mask"],
-                     "y_keys": ["y_rate", "y_dec"],
+    common_kwargs = {"path": path, "train_prop": 0.8,
+                     "x_keys": ["x", "x_mask"], "y_keys": ["y_rate", "y_dec"],
                      "seed": 100}
 
-    left_config = ChannelConfig(key='left', **common_kwargs)
-    right_config = ChannelConfig(key='right', **common_kwargs)
-
-    multi_config = MultiChannelConfig(path=path,
-                                      key='agg',
-                                      y_keys=["y_rate", "y_dec"],
-                                      channels=[left_config, right_config])
+    multi_config = MultiChannelConfig(path=path, key='agg', y_keys=["y_rate", "y_dec"],
+                                      channels=[ChannelConfig(key='left', **common_kwargs),
+                                                ChannelConfig(key='right', **common_kwargs)])
 
     mc = MultiChannel(multi_config)
 
     mc.plot_example()
 
-    mc.x
+    mc.x.keys()
     mc.x_train.keys()
 
     mc.plot_summary()

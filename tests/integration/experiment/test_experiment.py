@@ -19,7 +19,7 @@ class TestExperiment(unittest.TestCase):
         self._tmp_data_path_1 = os.path.join(self._tmp_dir.name, "test_data.hdf")
         self._tmp_data_path_2 = os.path.join(self._tmp_dir.name, "test_data.hdf")
 
-        self._sut = Experiment(name='test_experiment', n_epochs=2, n_reps=3)
+        self._sut = Experiment(name='test_experiment', path=self._tmp_dir.name, n_epochs=2, n_reps=3)
 
         datasets = [ExperimentalDataset("easy", n=256, difficulty=12).build(self._tmp_data_path_1),
                     ExperimentalDataset("hard", n=256, difficulty=12).build(self._tmp_data_path_2)]

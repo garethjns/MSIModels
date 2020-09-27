@@ -4,12 +4,13 @@ from msi_models.experiment.experimental_model import ExperimentalModel
 from msi_models.models.conv.multisensory_classifier import MultisensoryClassifier
 from msi_models.tf_helpers import limit_gpu_memory
 
-N_DATA_ROWS = 1000
-N_REPS = 5
+N_DATA_ROWS = 100000
+N_REPS = 10
 N_EPOCHS = 2000
 
-DATASETS = [ExperimentalDataset("easy", n=N_DATA_ROWS, difficulty=12).build("data/mix_easy.hdf5"),
-            ExperimentalDataset("hard", n=N_DATA_ROWS, difficulty=28).build("data/mix_hard.hdf5")]
+DATASETS = [ExperimentalDataset("easy", n=N_DATA_ROWS, difficulty=15).build("data/contained_mix_easy.hdf5"),
+            ExperimentalDataset("medium", n=N_DATA_ROWS, difficulty=25).build("data/contained_mix_medium.hdf5"),
+            ExperimentalDataset("hard", n=N_DATA_ROWS, difficulty=35).build("data/contained_mix_hard.hdf5")]
 MODELS = ['early_integration', 'intermediate_integration', 'late_integration']
 
 

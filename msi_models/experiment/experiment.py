@@ -1,4 +1,5 @@
 import os
+import pathlib
 from typing import List, Tuple
 
 import numpy as np
@@ -6,12 +7,14 @@ from tqdm import tqdm
 
 from msi_models.experiment.experimental_dataset import ExperimentalDataset
 from msi_models.experiment.experimental_model import ExperimentalModel
+from msi_models.experiment.experimental_results import ExperimentalResults
 from msi_models.experiment.experimental_run import ExperimentalRun
 
 
 class Experiment:
-    def __init__(self, name: str = 'unnamed_experiment', n_reps: int = 5, n_epochs: int = 2000) -> None:
+    def __init__(self, name: str = 'unnamed_experiment', path: str = '', n_reps: int = 5, n_epochs: int = 2000) -> None:
         self.name = name
+        self._path = path
         self.n_reps = n_reps
         self.n_epochs = n_epochs
 
@@ -21,6 +24,7 @@ class Experiment:
         self._runs: List[ExperimentalRun] = []
 
         self.output_path, self._i = self._get_next_output_path()
+        self.results = ExperimentalResults(experiment_path=self.output_path)
 
     def add_model(self, mod: ExperimentalModel) -> None:
         if mod not in self.models:
@@ -35,14 +39,18 @@ class Experiment:
             data.mc.plot_summary(subset='test', show=False).savefig(os.path.join(self.output_path,
                                                                                  f"{data.name}_test.png"))
 
-    def _get_next_output_path(self) -> Tuple[str, int]:
-        path = os.path.join(self.name)
-        i = 0
-        while os.path.exists(path):
-            path = os.path.join(self.name, f'_{i}')
-            i += 1
+    def _gen_path(self, i: int) -> str:
+        return os.path.join(self._path, self.name, f'_{i}')
 
-        os.mkdir(path)
+    def _get_next_output_path(self) -> Tuple[str, int]:
+        i = 0
+        path = self._gen_path(i)
+
+        while os.path.exists(path):
+            i += 1
+            path = self._gen_path(i)
+
+        pathlib.Path(path).mkdir(exist_ok=False, parents=True)
 
         return path, i
 
@@ -62,3 +70,10 @@ class Experiment:
             exp_run.log_run(to=f"{self.name}")
             exp_run.log_summary(to=f"{self.name}_summary")
             exp_run.save_models()
+
+        self.evaluate()
+
+    def evaluate(self) -> None:
+        self.results.add_results(self._runs)
+        self.results.evaluate()
+        self.results.plot_all()
