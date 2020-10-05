@@ -123,7 +123,7 @@ class ExperimentalRun:
     def log_summary(self, to: str) -> None:
         """Log a single summary "run" to another experiment (such as parent Experiment)."""
         mlflow.set_experiment(to)
-        run_id = mlflow.start_run(run_name=self.model.name)
+        _ = mlflow.start_run(run_name=self.model.name)
         self._log_common_params()
 
         for dset in ["train", "test"]:

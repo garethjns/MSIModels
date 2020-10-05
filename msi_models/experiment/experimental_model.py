@@ -200,7 +200,7 @@ class ExperimentalModel:
         for ri, layer_key in enumerate(self.model.combined_layers.keys()):
             row_idx = start_row_idx + ri
             ax = fig.add_subplot(gs[row_idx, :])
-            ax.plot(self.preds_test[f"{layer_key}"][row], linewidth=0.3)
+            ax.plot(self.preds_test[f"mid_{layer_key}"][row], linewidth=0.3)
             ax.set_title(f"Combined {layer_key}")
 
         # Combined output layers

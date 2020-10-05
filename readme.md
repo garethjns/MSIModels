@@ -13,21 +13,23 @@ Contents:
 ```bash
 git clone https://github.com/garethjns/MSIModels.git
 cd MSIModels
-pip install .
+pip install -r requirements.txt
 ```
 
 ## Run experiment
+
+### Python
 Run main experiment:
 ```bash
 python3 run.py
 ```
 
-Run smaller example experiment:
+Or, Run smaller example experiment:
 ```bash
 python3 -m scripts.run_full_experiment
 ```
 
-## View results
+#### View results
 1) Run MLflow server. Use a Linux VM or WSL if running project in Windows.
     ````bash
     mlflow ui
@@ -35,7 +37,17 @@ python3 -m scripts.run_full_experiment
 2) View at http://localhost:5000
 3) And "contained_experiment/_[run_number]"
 
-See results section for results from a 
+
+### Docker container
+Build the docker container:
+```bash
+docker build . -t msimodels
+```
+And run to access results folder at /tmp/msi and mlflow server at http://localhost:5000 
+```
+mkdir /tmp/msi/
+docker run -p 5000:5000 --mount type=bind,source=/tmp/msi,target=/contained_experiment msimodels
+```
 
 # Background <a name="background"></a>
 The human brain integrates incoming information over time, and combines evidence between different sensory modalities. Humans are able to use sensory information in a statistically-optimal fashion; reliable information is weighted as more important than unreliable or noisy information. However, exactly how and where the brain combines modalities is unclear, with multisensory processing occurring early in the cortex in cortices traditionally believed to be unisensory.
@@ -85,7 +97,7 @@ Each channel connects to an branch containing 1D convolutional layers. Where thi
 ### Output
 There are two main outputs for the network, a binary "fast" or "slow" decision and a linear "rate" estimation. By default the loss weights are 50/50 for these. The binary decision is used to evaluate model performance.
 
-There are additional outputs at the layers before the input branches merged. By default the loss weights for these are set to 0, and these outputs have no effect on training. Modifying the weights of the outputs allows creation of models that either focus on the final decision, or the intermediate event detection stages.
+There are additional outputs at the layers before the input branches merged. By default the loss weights for these are set to 0, and these outputs have no effect on training. Modifying the weights of the outputs allows creation of models that either focus on the final decision, or the intermediate event detection stages. See also [model debug](#model_debug)
 
 ### Architectures
 #### Early
@@ -350,3 +362,5 @@ Additional examples:
  - scripts/train_unisensory_model.py   
  - scripts/train_multisensory_model.py    
 
+## Model debug <a name="custom_experiments"></a>
+![model debug plot](images/intermediate_mod_debug.png)

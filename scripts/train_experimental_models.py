@@ -15,7 +15,7 @@ if __name__ == "__main__":
                                n=N_DATA_ROWS, difficulty=35).build("data/scripts_example_mix_hard.hdf5")
 
     # Prepare 3 models types
-    common_model_kwargs = {'opt': 'adam', 'batch_size': 15000, 'lr': 0.007}
+    common_model_kwargs = {'opt': 'adam', 'batch_size': 5000, 'lr': 0.007}
     early_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='early_integration',
                                                                **common_model_kwargs))
     int_exp_model = ExperimentalModel(MultisensoryClassifier(integration_type='intermediate_integration',
@@ -24,9 +24,10 @@ if __name__ == "__main__":
                                                               **common_model_kwargs))
 
     # fit each model and print some evaluation
-    for mod in [early_exp_model, int_exp_model, late_exp_model]:
+    # for mod in [early_exp_model, int_exp_model, late_exp_model]:
+    for mod in [int_exp_model]:
         # Fit
-        mod.fit(data, epochs=1)
+        mod.fit(data, epochs=2000)
 
         # Eval
         if mod.model.integration_type == 'intermediate_integration':
