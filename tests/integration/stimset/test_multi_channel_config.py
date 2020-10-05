@@ -1,4 +1,6 @@
 import copy
+import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock
 
@@ -14,17 +16,20 @@ class TestMultiChannelConfig(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls._data_fixture.save()
+        cls._tmp_dir = tempfile.TemporaryDirectory()
+        cls._data_fixture.save(path=cls._tmp_dir.name)
+        cls._data_fixture_path = os.path.join(cls._tmp_dir.name, cls._data_fixture.path)
 
     @classmethod
     def tearDownClass(cls):
         cls._data_fixture.clear()
+        cls._tmp_dir.cleanup()
 
     def setUp(self):
         # Specifying ChannelConfig is necessary here, as Pydantic expects the ChannelConfig type, and will additionally
         # run the ChannelConfig checks on the provided object.
         mock_config = MagicMock(spec=ChannelConfig)
-        mock_config.path = self._data_fixture.path
+        mock_config.path = self._data_fixture_path
         mock_config.seed = None
         mock_config.train_prop = 0.8
         mock_config.key = ''
@@ -39,7 +44,7 @@ class TestMultiChannelConfig(unittest.TestCase):
     def test_valid_config_survives_pydantic_validation(self):
         # Act
         multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
-                                 path=self._data_fixture.path,
+                                 path=self._data_fixture_path,
                                  y_keys=['y_rate', 'y_dec'])
 
         # Assert
@@ -48,7 +53,7 @@ class TestMultiChannelConfig(unittest.TestCase):
     def test_invalid_train_props_fails_pydantic_validation(self):
         # Arrange
         # Use real config for this
-        common_kwargs = {"path": self._data_fixture.path,
+        common_kwargs = {"path": self._data_fixture_path,
                          "x_keys": ["x", "x_mask"],
                          "y_keys": ["y_rate", "y_dec"],
                          "seed": 100}
@@ -69,7 +74,7 @@ class TestMultiChannelConfig(unittest.TestCase):
     def test_unspecified_seed_is_set_to_int(self):
         # Act
         multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
-                                 path=self._data_fixture.path,
+                                 path=self._data_fixture_path,
                                  y_keys=['y_rate', 'y_dec'])
 
         # Assert
@@ -80,7 +85,7 @@ class TestMultiChannelConfig(unittest.TestCase):
         # Act
         multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
                                  seed=None,
-                                 path=self._data_fixture.path,
+                                 path=self._data_fixture_path,
                                  y_keys=['y_rate', 'y_dec'])
 
         # Assert
@@ -94,7 +99,7 @@ class TestMultiChannelConfig(unittest.TestCase):
         # Act
         multi_config = self._sut(channels=[self.chan_config_left, self.chan_config_right],
                                  seed=seed,
-                                 path=self._data_fixture.path,
+                                 path=self._data_fixture_path,
                                  y_keys=['y_rate', 'y_dec'])
 
         # Assert

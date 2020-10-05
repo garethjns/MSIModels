@@ -24,14 +24,12 @@ class KerasSKBase(abc.ABC, BaseEstimator):
     es_loss: str
     epochs: int
     batch_size: int
+    tb_on: bool
 
-    def __init__(self, opt: str = 'adam',
-                 lr: float = 0.0002,
-                 es_patience: int = 100,
-                 es_loss: str = 'val_loss',
-                 epochs: int = 1000,
-                 batch_size: int = 2000):
-        self.set_params(opt=opt, lr=lr, es_patience=es_patience, es_loss=es_loss, epochs=epochs, batch_size=batch_size)
+    def __init__(self, opt: str = 'adam', lr: float = 0.0002, es_patience: int = 100,
+                 es_loss: str = 'val_loss', epochs: int = 1000, batch_size: int = 2000, tb_on: bool = False):
+        self.set_params(opt=opt, lr=lr, es_patience=es_patience, es_loss=es_loss, epochs=epochs, batch_size=batch_size,
+                        tb_on=tb_on)
 
     @abc.abstractmethod
     def build_model(self):
@@ -68,12 +66,8 @@ class KerasSKBase(abc.ABC, BaseEstimator):
         self.model.compile(optimizer=opt, loss=self._loss, loss_weights=self.loss_weights, metrics=self._metrics)
 
         es = EarlyStopping(monitor=self.es_loss, mode='min', verbose=2, patience=self.es_patience)
-        tb = TensorBoard(histogram_freq=5)
-
-        print(self.batch_size)
-        self.model.fit(*args,
-                       batch_size=self.batch_size,
-                       callbacks=[es, tb], **kwargs)
+        self.model.fit(*args, **kwargs, batch_size=self.batch_size,
+                       callbacks=[es] + [TensorBoard(histogram_freq=5)] if self.tb_on else [])
 
         tf.keras.backend.clear_session()
 

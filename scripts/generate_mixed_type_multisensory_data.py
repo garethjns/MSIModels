@@ -3,7 +3,7 @@ import os
 from msi_models.stim.multi_two_gap.multi_two_gap_stim import MultiTwoGapStim
 from msi_models.stim.multi_two_gap.multi_two_gap_template import MultiTwoGapTemplate
 
-N = 250000
+N = 50000
 N_JOBS = 28
 # Each batch randomly picks a template to generate from
 BATCH_SIZE = 100

@@ -38,6 +38,10 @@ class ExperimentalRun:
         self._prepare_output_path()
         self._prepare_runs()
 
+        # TODO: Temp numeric id for integration types - replace with Enum
+        self._model_type_map: Dict[str, int] = {'early_integration': 0, 'intermediate_integration': 1,
+                                                'late_integration': 2}
+
     def _prepare_model(self):
         self.model.model.clear_tf()
 
@@ -57,7 +61,7 @@ class ExperimentalRun:
             self.results.set_data(self.data)
 
             for r in tqdm(range(self.n_reps), desc=self.name):
-                self._fit(self._models[r], self.data, epochs=self.n_epochs)
+                self._fit(self._models[r], self.data, epochs=self.n_epochs, verbose=1)
                 tf.keras.backend.clear_session()
 
             self.results.add_models(self._models)
@@ -80,7 +84,12 @@ class ExperimentalRun:
     def _log_common_params(self) -> None:
         mlflow.log_param('dataset_path', self.data.path)
         mlflow.log_param('dataset_name', self.data.name)
+        mlflow.log_param('dataset_difficulty', self.data.difficulty)
+        mlflow.log_param('dataset_n', self.data.n)
+        mlflow.log_param('dataset_n_train', self.data.mc.summary_train.shape[0])
+        mlflow.log_param('dataset_n_test', self.data.mc.summary_test.shape[0])
         mlflow.log_param('model_integration_type', self.model.name.split('_')[0])
+        mlflow.log_param('model_integration_type_num', self._model_type_map.get(self.model.model.integration_type, -1))
         mlflow.log_param('model_n_params', self._models[0].model.n_params)  # (Needs to be a built model)
         mlflow.log_param('exp_path', self.exp_path)
         mlflow.log_param('output_path', self.output_path)
@@ -114,7 +123,7 @@ class ExperimentalRun:
     def log_summary(self, to: str) -> None:
         """Log a single summary "run" to another experiment (such as parent Experiment)."""
         mlflow.set_experiment(to)
-        mlflow.start_run(run_name=self.model.name)
+        _ = mlflow.start_run(run_name=self.model.name)
         self._log_common_params()
 
         for dset in ["train", "test"]:

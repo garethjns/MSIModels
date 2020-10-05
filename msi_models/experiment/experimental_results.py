@@ -99,7 +99,7 @@ class ExperimentalResults:
         ax.set_title(f'Subset: {subset}, type: all', fontweight='bold')
         ax.set_ylabel('Decision accuracy', fontweight='bold')
         ax.set_xlabel(ax.get_xlabel(), fontweight='bold')
-        fig.savefig(os.path.join(self.graphs_path, f"dt_{subset}.png"))
+        fig.savefig(os.path.join(self.graphs_path, f"accuracy_{subset}.png"))
 
         if show:
             plt.show()
