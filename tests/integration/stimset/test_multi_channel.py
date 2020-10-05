@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 
 import numpy as np
@@ -11,23 +12,24 @@ from tests.common.fixtures.data_fixtures import MultisensoryDataFixture
 class TestMultiChannel(unittest.TestCase):
     _data_fixture = MultisensoryDataFixture()
     _sut = MultiChannel
+    _data_file_path = tempfile.TemporaryDirectory()
 
     @classmethod
     def setUpClass(cls):
-        cls._data_fixture.save()
+        cls._data_fixture.save(cls._data_file_path.name)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._data_file_path.cleanup()
 
     def setUp(self):
         # For single chans
-        common_kwargs = {"path": self._data_fixture.path,
-                         "train_prop": 0.8,
-                         "x_keys": ["x", "x_mask"],
-                         "y_keys": ["y_rate", "y_dec"],
+        common_kwargs = {"path": self._data_fixture.path, "train_prop": 0.8,
+                         "x_keys": ["x", "x_mask"], "y_keys": ["y_rate", "y_dec"],
                          "seed": 100}
 
-        left_config = ChannelConfig(key='left', **common_kwargs)
-        right_config = ChannelConfig(key='right', **common_kwargs)
-
-        self.multi_config = MultiChannelConfig(channels=[left_config, right_config],
+        self.multi_config = MultiChannelConfig(channels=[ChannelConfig(key='left', **common_kwargs),
+                                                         ChannelConfig(key='right', **common_kwargs)],
                                                path=self._data_fixture.path,
                                                y_keys=['y_rate', 'y_dec'])
 

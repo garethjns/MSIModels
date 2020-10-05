@@ -17,7 +17,8 @@ class MultiChannel:
         self.channels = [Channel(config) for config in self.config.channels]
         # Create a new channel to get the main y keys, wherever they are.
         self.y_channel = Channel(ChannelConfig(path=self.config.path, seed=self.config.seed,
-                                               key=self.config.key, y_keys=self.config.y_keys))
+                                               key=self.config.key, y_keys=self.config.y_keys,
+                                               train_prop=self.config.channels[0].train_prop))
 
         self.n = self.channels[0].n
 

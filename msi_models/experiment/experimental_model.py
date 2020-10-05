@@ -97,7 +97,7 @@ class ExperimentalModel:
                                                        df.loc[df[type_key] == ty, 'preds_dec'])
                 coefs: Dict[str, Any] = pc.coefs_  # This typehint is missing in FitPsyche package
                 coefs.update({'model': pc})
-            except np.linalg.LinAlgError:
+            except (RuntimeError, np.linalg.LinAlgError):
                 coefs = {}
 
             pc_coefs.append(pd.DataFrame(coefs, index=[ty]))

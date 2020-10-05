@@ -43,23 +43,32 @@ class ExperimentalDataset:
     def __hash__(self) -> int:
         return hash(self.path)
 
-    def build(self, path: str = "sample_multisensory_data_mix_med_1k.hdf5", n_jobs: int = 12) -> "ExperimentalDataset":
+    def build(self, path: str = "sample_multisensory_data_mix_med_1k.hdf5", n_jobs: int = 12,
+              batch_size: int = None) -> "ExperimentalDataset":
         """
         :param path: Path to load from (and/or to create at).
         :param n_jobs: Number of jobs to use if generating data.
+        :param batch_size: Size of batches to use in generation. Default None, which sets automatically (may result in
+                           rounding errors on n when n_jobs != 1).
         """
 
         self.path = path.replace('\\', '/')
-        self._generate(n_jobs)
+        self._generate(n_jobs, batch_size)
         self._load(self.path)
 
         return self
 
-    def _generate(self, n_jobs: int):
+    def _generate(self, n_jobs: int, batch_size: int = None) -> None:
+        if batch_size is None:
+            if n_jobs == 1:
+                batch_size = self.n
+            else:
+                batch_size = max(1, int(np.log2(self.n / n_jobs)))
+
         if not os.path.exists(self.path):
             pathlib.Path(os.path.split(self.path)[0]).mkdir(exist_ok=True)
             MultiTwoGapStim.generate(fn=self.path, n=self.n, n_jobs=n_jobs,
-                                     batch_size=max(1, int(np.log2(self.n / n_jobs))),
+                                     batch_size=batch_size,
                                      template_kwargs=self.template_kwargs, **self.generate_params)
 
     def _load(self, path: str):

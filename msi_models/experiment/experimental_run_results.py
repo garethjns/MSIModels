@@ -1,5 +1,5 @@
 import os
-from typing import List, Union
+from typing import List, Union, Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -138,8 +138,67 @@ class ExperimentalResults:
 
         return sets
 
+    def _plot_curve(self, ax: plt.Axes, coefs: Dict[str, float], label=None, **plot_kwargs) -> plt.Axes:
+        try:
+            pc = PsychometricCurve(model='wh')
+            pc.coefs_ = coefs
+            x = np.linspace(min(self.rates), max(self.rates), 200)
+            y_pred = pc.predict(x)
+            ax.plot(x, y_pred, label=label, **plot_kwargs)
+        except IndexError:
+            print('PC fit failed.')
+
+        return ax
+
+    def _bootstrap_curves(self, ax: plt.Axes, coefs_mean: Dict[str, float],
+                          coefs_std: Dict[str, float], n: int = 50) -> plt.Axes:
+        active_coefs = list(coefs_mean.keys())
+
+        sample_coefs = {k: np.random.randn(n) * coefs_std[k] + coefs_mean[k] for k in active_coefs}
+        sample_coefs['var'] = [max(0.001, c) for c in sample_coefs['var']]
+        for k in ['guess_rate', 'lapse_rate']:
+            if k in active_coefs:
+                sample_coefs[k] = [min(max(0.0001, c), 0.99999) for c in sample_coefs[k]]
+
+        for i in range(n):
+            self._plot_curve(ax=ax, coefs={k: v[i] for k, v in sample_coefs.items()}, color='lightgray', alpha=0.5,
+                             zorder=1)
+
+        return ax
+
+    def _agg_subplot(self, ax: plt.Axes, data: pd.DataFrame, curve_data: pd.DataFrame,
+                     ty: int, name: str, include_curves: bool = True, n_bootstrap: int = 50) -> plt.Axes:
+        idx = (data[self.type_key] == ty) & (data["set"] == name)
+        data_subset = data.loc[idx, :].sort_values(self.rate_key, ascending=True)
+
+        ax.scatter(data_subset[self.rate_key], data_subset['preds_dec_mean'], label=name, zorder=2)
+        ax.errorbar(data_subset[self.rate_key], data_subset['preds_dec_mean'],
+                    data_subset['preds_dec_std'] / np.sqrt(data_subset['preds_dec_n']), linestyle=' ', zorder=2)
+
+        coefs_mean = None
+        if include_curves or (n_bootstrap > 0):
+            curve_idx = (curve_data[self.type_key] == ty) & (curve_data['set'] == name)
+            if sum(curve_idx) > 0:
+                coefs_mean = {k: curve_data.loc[curve_idx, f"{k}_mean"].values[0]
+                              for k in ['mean', 'var', 'guess_rate', 'lapse_rate']}
+
+            if (n_bootstrap > 0) and (coefs_mean is not None):
+                coefs_std = {k: curve_data.loc[curve_idx, f"{k}_std"].values[0]
+                             for k in ['mean', 'var', 'guess_rate', 'lapse_rate']}
+                ax = self._bootstrap_curves(ax=ax, coefs_mean=coefs_mean, coefs_std=coefs_std, n=n_bootstrap)
+
+            if include_curves and (coefs_mean is not None):
+                ax = self._plot_curve(ax=ax, coefs=coefs_mean, zorder=3,
+                                      label=f"{name}_fit \n(b={np.round(coefs_mean['mean'], 2)}\n"
+                                            f"var={np.round(coefs_mean['var'], 2)}\n"
+                                            f"gr={np.round(coefs_mean['guess_rate'], 2)}\n"
+                                            f"lr={np.round(coefs_mean['lapse_rate'], 2)})")
+
+        return ax
+
     def plot_aggregated_results(self, train: bool = False, test: bool = True,
-                                include_curves: bool = True, show: bool = True, path: str = None) -> plt.Figure:
+                                include_curves: bool = True, show: bool = True, path: str = None,
+                                n_bootstrap: int = 100) -> plt.Figure:
         n_subplots = len(self.types)
         fig, axs = plt.subplots(ncols=n_subplots, figsize=(2.5 * n_subplots, 8))
 
@@ -149,24 +208,8 @@ class ExperimentalResults:
 
         for ai, (ax, ty) in enumerate(zip(axs, self.types)):
             for name in sets:
-                idx = (data[self.type_key] == ty) & (data["set"] == name)
-                data_subset = data.loc[idx, :].sort_values(self.rate_key, ascending=True)
-
-                ax.scatter(data_subset[self.rate_key], data_subset['preds_dec_mean'], label=name)
-                ax.errorbar(data_subset[self.rate_key], data_subset['preds_dec_mean'],
-                            data_subset['preds_dec_std'] / np.sqrt(data_subset['preds_dec_n']), linestyle=' ')
-
-                if include_curves:
-                    curve_idx = (curve_data[self.type_key] == ty) & (curve_data['set'] == name)
-                    pc = PsychometricCurve(model='wh')
-                    pc.coefs_ = {k: curve_data.loc[curve_idx, f"{k}_mean"].values[0]
-                                 for k in ['mean', 'var', 'guess_rate', 'lapse_rate']}
-                    x = np.linspace(min(self.rates), max(self.rates), 200)
-                    y_pred = pc.predict(x)
-                    ax.plot(x, y_pred, label=f"{name}_fit \n(b={np.round(pc.coefs_['mean'], 2)}\n"
-                                             f"var={np.round(pc.coefs_['var'], 2)}\n"
-                                             f"gr={np.round(pc.coefs_['guess_rate'], 2)}\n"
-                                             f"lr={np.round(pc.coefs_['lapse_rate'], 2)})")
+                ax = self._agg_subplot(ax, data, curve_data, ty, name, include_curves=include_curves,
+                                       n_bootstrap=n_bootstrap)
 
             ax.set_ylim([0, 1])
             ax.set_xlim([min(self.rates) - 2, max(self.rates) + 2])

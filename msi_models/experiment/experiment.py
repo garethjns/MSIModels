@@ -1,6 +1,6 @@
 import os
 import pathlib
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 from tqdm import tqdm
@@ -12,6 +12,9 @@ from msi_models.experiment.experimental_run import ExperimentalRun
 
 
 class Experiment:
+    # TODO: Temp numeric id for integration types - replace with Enum
+    _model_type_map: Dict[str, int] = {'early_integration': 0, 'intermediate_integration': 1, 'late_integration': 2}
+
     def __init__(self, name: str = 'unnamed_experiment', path: str = '', n_reps: int = 5, n_epochs: int = 2000) -> None:
         self.name = name
         self._path = path

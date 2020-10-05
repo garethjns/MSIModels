@@ -19,19 +19,20 @@ class MultisensoryBase(KerasSKBase):
              "y_dec": "categorical_crossentropy",
              "y_rate": "mse"}
     loss_weights = {"left_conv_1": 0,
-                     "left_conv_2": 0,
-                     "left_y_rate": 0,
-                     "right_y_rate": 0,
-                     "right_conv_1": 0,
-                     "right_conv_2": 0,
-                     "agg_y_dec": 0.5,
-                     "agg_y_rate": 0.5}
+                    "left_conv_2": 0,
+                    "left_y_rate": 0,
+                    "right_y_rate": 0,
+                    "right_conv_1": 0,
+                    "right_conv_2": 0,
+                    "agg_y_dec": 0.5,
+                    "agg_y_rate": 0.5}
     _metrics = {"agg_y_dec": ['accuracy']}
 
     def __init__(self,
                  integration_type: str = 'early_integration',
                  opt: str = 'adam',
                  lr: float = 0.0005,
+                 tb_on: bool = False,
                  epochs: int = 1000,
                  batch_size: int = 2000,
                  es_patience: int = 20,
@@ -45,20 +46,16 @@ class MultisensoryBase(KerasSKBase):
                  drop_2_prop: float = 0.01,
                  fc_1_units_input_prop: float = 1 / 2, fc_1_activation: str = 'relu',
                  fc_2_units_input_prop: float = 1 / 4, fc_2_activation: str = 'relu'):
-        super().__init__(opt=opt, lr=lr, es_patience=es_patience,
+        super().__init__(opt=opt, lr=lr, es_patience=es_patience, tb_on=tb_on,
                          es_loss=es_loss, epochs=epochs, batch_size=batch_size)
 
         self.integration_type: str = integration_type
-        self.set_params(integration_type=integration_type,
-                        input_length=input_length,
+        self.set_params(integration_type=integration_type, input_length=input_length,
                         conv_1_filters=conv_1_filters, conv_1_kernel_size=conv_1_kernel_size,
-                        conv_1_activation=conv_1_activation,
-                        max_pool_1=max_pool_1,
+                        conv_1_activation=conv_1_activation, max_pool_1=max_pool_1,
                         conv_2_filters=conv_2_filters, conv_2_kernel_size=conv_2_kernel_size,
-                        conv_2_activation=conv_2_activation,
-                        max_pool_2=max_pool_2,
-                        drop_1_prop=drop_1_prop,
-                        drop_2_prop=drop_2_prop,
+                        conv_2_activation=conv_2_activation, max_pool_2=max_pool_2,
+                        drop_1_prop=drop_1_prop, drop_2_prop=drop_2_prop,
                         fc_1_units_input_prop=fc_1_units_input_prop, fc_1_activation=fc_1_activation,
                         fc_2_units_input_prop=fc_2_units_input_prop, fc_2_activation=fc_2_activation)
 

@@ -79,9 +79,11 @@ class MultisensoryDataFixture(DataFixture):
    |--summary
 
     """
-    path: str = 'test_multisensory_data_fixture.hdf5'
+    fn: str = 'test_multisensory_data_fixture.hdf5'
 
-    def save(self):
+    def save(self, path: str):
+        self.path = os.path.join(path, self.fn)
+
         with h5py.File(self.path, 'w') as f:
             f.create_dataset("left/x", data=self.x_left, compression='gzip')
             f.create_dataset("left/x_mask", data=self.x_mask_left, compression='gzip')
