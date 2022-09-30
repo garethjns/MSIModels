@@ -9,7 +9,7 @@ pydantic==1.6.1
 pydot
 graphviz
 h5py==2.10
-joblib==0.16.0
+joblib==1.2.0
 tables==3.6.1
 tqdm
 scikit-learn==0.23.2
